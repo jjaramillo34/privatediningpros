@@ -1,0 +1,750 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { Building2, Plus, CheckCircle, AlertTriangle, MapPin, Phone, Globe, DollarSign, Star, Camera, FileText, ArrowLeft, Sparkles, Users, Clock, Award, Heart, Zap, Shield } from 'lucide-react';
+import Link from 'next/link';
+
+export default function SuggestRestaurantPage() {
+  const { data: session } = useSession();
+  const [formData, setFormData] = useState({
+    name: '',
+    address: '',
+    city: '',
+    state: '',
+    country: 'United States',
+    phone: '',
+    website: '',
+    description: '',
+    image: '',
+    category: '',
+    price_range: '',
+    neighborhood: '',
+    postal_code: '',
+    email: '',
+    rating: '',
+    private_rooms: '',
+    capacity: '',
+    special_features: '',
+    cuisine_type: '',
+    atmosphere: '',
+    dress_code: '',
+    parking: '',
+    accessibility: '',
+    hours: '',
+    best_for: '',
+    contact_person: '',
+    notes: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [geolocationStatus, setGeolocationStatus] = useState<{success: boolean, message?: string} | null>(null);
+
+  // Scroll detection
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 100);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setSuccess(false);
+    try {
+      const res = await fetch('/api/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          submittedBy: session?.user?.id || null,
+        }),
+      });
+      if (res.ok) {
+        const responseData = await res.json();
+        setSuccess(true);
+        setGeolocationStatus(responseData.geolocation || null);
+        setFormData({
+          name: '', address: '', city: '', state: '', country: 'United States', phone: '', website: '', description: '', image: '', category: '', price_range: '', neighborhood: '', postal_code: '', email: '', rating: '', private_rooms: '', capacity: '', special_features: '', cuisine_type: '', atmosphere: '', dress_code: '', parking: '', accessibility: '', hours: '', best_for: '', contact_person: '', notes: '', short_description: ''
+        });
+        setCurrentStep(1);
+      } else {
+        const data = await res.json();
+        setError(data.message || 'Submission failed.');
+      }
+    } catch (err) {
+      console.error('Error submitting suggestion:', err);
+      setError('Submission failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const nextStep = () => {
+    if (currentStep < 4) setCurrentStep(currentStep + 1);
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  const isStepValid = (step: number) => {
+    switch (step) {
+      case 1:
+        return formData.name && formData.address;
+      case 2:
+        return formData.phone || formData.website;
+      case 3:
+        return formData.description;
+      case 4:
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const steps = [
+    { id: 1, title: 'Basic Info', icon: Building2 },
+    { id: 2, title: 'Contact Details', icon: Phone },
+    { id: 3, title: 'Description', icon: FileText },
+    { id: 4, title: 'Additional Info', icon: Star }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Floating Back Button */}
+      <div className={`fixed top-6 left-6 z-50 transition-all duration-300 ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+        <Link
+          href="/"
+          className="bg-white/90 backdrop-blur-sm text-gray-700 p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 group"
+        >
+          <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+        </Link>
+      </div>
+
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white py-20 overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0">
+          <div className="absolute top-20 left-10 w-20 h-20 bg-blue-400/20 rounded-full blur-xl animate-pulse"></div>
+          <div className="absolute top-40 right-20 w-32 h-32 bg-indigo-400/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute bottom-20 left-1/4 w-24 h-24 bg-purple-400/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="max-w-4xl mx-auto">
+            <div className="inline-flex items-center px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-sm font-medium text-white/90 mb-8">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Help Us Grow
+            </div>
+            
+            <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+              Suggest a{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400">
+                Restaurant
+              </span>
+            </h1>
+            
+            <p className="text-xl md:text-2xl mb-8 text-blue-100 leading-relaxed max-w-3xl mx-auto">
+              Know a great private dining spot? Help us expand our directory by suggesting restaurants 
+              with exceptional private dining experiences.
+            </p>
+            
+            {/* Benefits */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              <div className="flex items-center justify-center space-x-3 text-blue-100">
+                <div className="p-2 bg-white/10 rounded-lg">
+                  <Shield className="h-5 w-5 text-green-400" />
+                </div>
+                <span className="text-sm font-medium">Quality Reviewed</span>
+              </div>
+              <div className="flex items-center justify-center space-x-3 text-blue-100">
+                <div className="p-2 bg-white/10 rounded-lg">
+                  <Users className="h-5 w-5 text-blue-400" />
+                </div>
+                <span className="text-sm font-medium">Help Others</span>
+              </div>
+              <div className="flex items-center justify-center space-x-3 text-blue-100">
+                <div className="p-2 bg-white/10 rounded-lg">
+                  <Award className="h-5 w-5 text-yellow-400" />
+                </div>
+                <span className="text-sm font-medium">Community Driven</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Form Section */}
+      <section className="py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Progress Steps */}
+          <div className="mb-12">
+            <div className="flex items-center justify-center space-x-4">
+              {steps.map((step, index) => {
+                const Icon = step.icon;
+                const isActive = currentStep === step.id;
+                const isCompleted = currentStep > step.id;
+                const isValid = isStepValid(step.id);
+                
+                return (
+                  <div key={step.id} className="flex items-center">
+                    <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
+                      isActive 
+                        ? 'bg-blue-600 border-blue-600 text-white' 
+                        : isCompleted 
+                          ? 'bg-green-500 border-green-500 text-white'
+                          : isValid
+                            ? 'bg-blue-100 border-blue-300 text-blue-600'
+                            : 'bg-gray-100 border-gray-300 text-gray-400'
+                    }`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="ml-3 hidden sm:block">
+                      <p className={`text-sm font-medium ${
+                        isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        {step.title}
+                      </p>
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div className={`w-16 h-0.5 mx-4 ${
+                        isCompleted ? 'bg-green-500' : 'bg-gray-300'
+                      }`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Form Card */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            {/* Success/Error Messages */}
+            {success && (
+              <div className="bg-green-50 border-b border-green-200 p-6">
+                <div className="flex items-center">
+                  <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-green-800">Thank you for your suggestion!</h3>
+                    <p className="text-green-700 mb-3">Your restaurant suggestion has been submitted for review. We'll notify you once it's been processed.</p>
+                    
+                    {geolocationStatus && (
+                      <div className={`p-3 rounded-lg ${geolocationStatus.success ? 'bg-blue-50 border border-blue-200' : 'bg-yellow-50 border border-yellow-200'}`}>
+                        <div className="flex items-center">
+                          {geolocationStatus.success ? (
+                            <MapPin className="h-4 w-4 text-blue-600 mr-2" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 text-yellow-600 mr-2" />
+                          )}
+                          <div>
+                            <p className={`text-sm font-medium ${geolocationStatus.success ? 'text-blue-800' : 'text-yellow-800'}`}>
+                              {geolocationStatus.success ? 'Address Geocoded Successfully' : 'Address Geocoding Failed'}
+                            </p>
+                            <p className={`text-xs ${geolocationStatus.success ? 'text-blue-600' : 'text-yellow-600'}`}>
+                              {geolocationStatus.success 
+                                ? 'Location coordinates have been automatically added to your submission.'
+                                : geolocationStatus.message || 'Location coordinates could not be determined automatically. An admin will add them manually.'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {error && (
+              <div className="bg-red-50 border-b border-red-200 p-6">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-6 w-6 text-red-600 mr-3" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-800">Submission Error</h3>
+                    <p className="text-red-700">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!success && (
+              <form onSubmit={handleSubmit} className="p-8">
+                {/* Step 1: Basic Information */}
+                {currentStep === 1 && (
+                  <div className="space-y-6">
+                    <div className="text-center mb-8">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-2xl mb-4">
+                        <Building2 className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Basic Information</h2>
+                      <p className="text-gray-600">Tell us about the restaurant's basic details</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <Building2 className="h-4 w-4 inline mr-2" />
+                          Restaurant Name *
+                        </label>
+                        <input 
+                          type="text" 
+                          name="name" 
+                          value={formData.name} 
+                          onChange={handleChange} 
+                          required 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Enter restaurant name"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <MapPin className="h-4 w-4 inline mr-2" />
+                          Address *
+                        </label>
+                        <input 
+                          type="text" 
+                          name="address" 
+                          value={formData.address} 
+                          onChange={handleChange} 
+                          required 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Street address"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                        <input 
+                          type="text" 
+                          name="city" 
+                          value={formData.city} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="City"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                        <input 
+                          type="text" 
+                          name="state" 
+                          value={formData.state} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="State"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Neighborhood</label>
+                        <input 
+                          type="text" 
+                          name="neighborhood" 
+                          value={formData.neighborhood} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Neighborhood or area"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
+                        <input 
+                          type="text" 
+                          name="postal_code" 
+                          value={formData.postal_code} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="ZIP/Postal code"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: Contact Details */}
+                {currentStep === 2 && (
+                  <div className="space-y-6">
+                    <div className="text-center mb-8">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-2xl mb-4">
+                        <Phone className="h-8 w-8 text-green-600" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Contact Information</h2>
+                      <p className="text-gray-600">Help customers get in touch with the restaurant</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <Phone className="h-4 w-4 inline mr-2" />
+                          Phone Number
+                        </label>
+                        <input 
+                          type="tel" 
+                          name="phone" 
+                          value={formData.phone} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="(555) 123-4567"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <Globe className="h-4 w-4 inline mr-2" />
+                          Website
+                        </label>
+                        <input 
+                          type="url" 
+                          name="website" 
+                          value={formData.website} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="https://restaurant.com"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input 
+                          type="email" 
+                          name="email" 
+                          value={formData.email} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="contact@restaurant.com"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Contact Person</label>
+                        <input 
+                          type="text" 
+                          name="contact_person" 
+                          value={formData.contact_person} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Manager or contact person"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Description */}
+                {currentStep === 3 && (
+                  <div className="space-y-6">
+                    <div className="text-center mb-8">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-2xl mb-4">
+                        <FileText className="h-8 w-8 text-purple-600" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Description & Details</h2>
+                      <p className="text-gray-600">Tell us about the restaurant's atmosphere and specialties</p>
+                    </div>
+                    
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <FileText className="h-4 w-4 inline mr-2" />
+                          Description *
+                        </label>
+                        <textarea 
+                          name="description" 
+                          value={formData.description} 
+                          onChange={handleChange} 
+                          required
+                          rows={4}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Describe the restaurant, its atmosphere, specialties, and what makes it special for private dining..."
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <FileText className="h-4 w-4 inline mr-2" />
+                          Short Description
+                        </label>
+                        <textarea 
+                          name="short_description" 
+                          value={formData.short_description} 
+                          onChange={handleChange} 
+                          rows={2}
+                          maxLength={150}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Brief description for cards and listings (max 150 characters)"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formData.short_description.length}/150 characters
+                        </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Cuisine Type</label>
+                          <input 
+                            type="text" 
+                            name="cuisine_type" 
+                            value={formData.cuisine_type} 
+                            onChange={handleChange} 
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                            placeholder="e.g., Italian, French, Japanese"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <DollarSign className="h-4 w-4 inline mr-2" />
+                            Price Range
+                          </label>
+                          <select 
+                            name="price_range" 
+                            value={formData.price_range} 
+                            onChange={handleChange} 
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                          >
+                            <option value="">Select price range</option>
+                            <option value="$">$ - Budget friendly</option>
+                            <option value="$$">$$ - Moderate</option>
+                            <option value="$$$">$$$ - Upscale</option>
+                            <option value="$$$$">$$$$ - Fine dining</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                          <input 
+                            type="text" 
+                            name="category" 
+                            value={formData.category} 
+                            onChange={handleChange} 
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                            placeholder="e.g., Fine Dining, Business, Casual"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Atmosphere</label>
+                          <input 
+                            type="text" 
+                            name="atmosphere" 
+                            value={formData.atmosphere} 
+                            onChange={handleChange} 
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                            placeholder="e.g., Romantic, Business, Family-friendly"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4: Additional Information */}
+                {currentStep === 4 && (
+                  <div className="space-y-6">
+                    <div className="text-center mb-8">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 rounded-2xl mb-4">
+                        <Star className="h-8 w-8 text-yellow-600" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Additional Information</h2>
+                      <p className="text-gray-600">Help us provide more details about private dining options</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Private Rooms</label>
+                        <input 
+                          type="text" 
+                          name="private_rooms" 
+                          value={formData.private_rooms} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Number of private rooms available"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Capacity</label>
+                        <input 
+                          type="text" 
+                          name="capacity" 
+                          value={formData.capacity} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Maximum capacity for private dining"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Best For</label>
+                        <input 
+                          type="text" 
+                          name="best_for" 
+                          value={formData.best_for} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="e.g., Business meetings, celebrations, dates"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Dress Code</label>
+                        <input 
+                          type="text" 
+                          name="dress_code" 
+                          value={formData.dress_code} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="e.g., Business casual, Formal, Casual"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Parking</label>
+                        <input 
+                          type="text" 
+                          name="parking" 
+                          value={formData.parking} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Parking availability"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Accessibility</label>
+                        <input 
+                          type="text" 
+                          name="accessibility" 
+                          value={formData.accessibility} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Accessibility features"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <Camera className="h-4 w-4 inline mr-2" />
+                          Image URL
+                        </label>
+                        <input 
+                          type="url" 
+                          name="image" 
+                          value={formData.image} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="https://example.com/restaurant-image.jpg"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <Clock className="h-4 w-4 inline mr-2" />
+                          Working Hours (JSON format)
+                        </label>
+                        <textarea 
+                          name="hours" 
+                          value={formData.hours} 
+                          onChange={handleChange} 
+                          rows={4}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-mono text-sm" 
+                          placeholder='{"Monday": "9:00 AM - 10:00 PM", "Tuesday": "9:00 AM - 10:00 PM", "Wednesday": "9:00 AM - 10:00 PM", "Thursday": "9:00 AM - 10:00 PM", "Friday": "9:00 AM - 11:00 PM", "Saturday": "10:00 AM - 11:00 PM", "Sunday": "10:00 AM - 9:00 PM"}'
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter hours in JSON format. Example: {"Monday": "9:00 AM - 10:00 PM"}
+                        </p>
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Special Features</label>
+                        <textarea 
+                          name="special_features" 
+                          value={formData.special_features} 
+                          onChange={handleChange} 
+                          rows={3}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Any special features, amenities, or unique aspects of the restaurant..."
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
+                        <textarea 
+                          name="notes" 
+                          value={formData.notes} 
+                          onChange={handleChange} 
+                          rows={3}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                          placeholder="Any additional information you'd like to share..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Navigation Buttons */}
+                <div className="flex items-center justify-between pt-8 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    disabled={currentStep === 1}
+                    className="flex items-center px-6 py-3 text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center space-x-4">
+                    {currentStep < 4 ? (
+                      <button
+                        type="button"
+                        onClick={nextStep}
+                        disabled={!isStepValid(currentStep)}
+                        className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                        <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="flex items-center px-8 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg hover:from-green-700 hover:to-blue-700 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                      >
+                        {submitting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Submit Suggestion
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+} 
