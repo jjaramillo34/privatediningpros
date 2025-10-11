@@ -337,7 +337,7 @@ export default function HomePage({ restaurants }: HomePageProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Floating Action Button */}
-      <div className={`fixed bottom-6 right-6 z-50 transition-all duration-300 ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      <div className={`fixed bottom-6 left-6 z-50 transition-all duration-300 ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <button
           onClick={scrollToRestaurants}
           className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 group"

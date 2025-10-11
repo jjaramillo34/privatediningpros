@@ -234,6 +234,22 @@ export default async function RestaurantDetailPage({ params }: { params: Promise
               </div>
             )}
 
+            {/* Additional Features */}
+            {restaurant.additional_features && (
+              <div className="bg-white rounded-xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-100">
+                <div className="mb-6 sm:mb-8">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 flex items-center">
+                    <Utensils className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-purple-600 mr-2 sm:mr-3" />
+                    Additional Features
+                  </h2>
+                  <div className="w-16 sm:w-20 h-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full"></div>
+                </div>
+                <div className="prose prose-sm sm:prose-base lg:prose-lg max-w-none">
+                  <MarkdownRenderer content={restaurant.additional_features} />
+                </div>
+              </div>
+            )}
+
             {/* Image Gallery */}
             {restaurant.images && restaurant.images.length > 0 && (
               <RestaurantImageGallery 

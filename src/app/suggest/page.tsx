@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { Search, AlertTriangle } from 'lucide-react';
+import { Search, AlertTriangle, Sparkles, Camera, MapPin, FileText, Clock, ChevronDown, ChevronUp, Info, Zap, CheckCircle } from 'lucide-react';
 import RestaurantSearchModal from '@/components/suggest/RestaurantSearchModal';
 import AutoPopulatedIndicator from '@/components/suggest/AutoPopulatedIndicator';
 import SuccessMessage from '@/components/suggest/SuccessMessage';
@@ -13,6 +13,7 @@ import PrivateDiningFields from '@/components/suggest/PrivateDiningFields';
 
 export default function SuggestRestaurantPage() {
   const { data: session } = useSession();
+  const [showInstructions, setShowInstructions] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -347,20 +348,126 @@ export default function SuggestRestaurantPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Suggest a Restaurant</h1>
-          <p className="text-gray-600 mb-6">
-            Help us grow our collection by suggesting a restaurant with private dining options.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-600">
+        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-white/20 backdrop-blur-lg rounded-2xl mb-8 shadow-2xl border border-white/30">
+              <Sparkles className="h-10 w-10 text-white" />
+            </div>
+            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 drop-shadow-lg">
+              Suggest a Restaurant
+            </h1>
+            <p className="text-xl md:text-2xl text-emerald-100 max-w-3xl mx-auto leading-relaxed">
+              Help us grow our collection by suggesting restaurants with private dining options
+            </p>
+          </div>
+        </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Instructions Toggle */}
+        <div className="mb-8">
+          <button
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="w-full bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                  <Info className="h-6 w-6 text-white" />
+                </div>
+                <div className="text-left">
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">How to Use This Form</h2>
+                  <p className="text-sm text-gray-600">Click to {showInstructions ? 'hide' : 'view'} step-by-step instructions</p>
+                </div>
+              </div>
+              {showInstructions ? (
+                <ChevronUp className="h-6 w-6 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-6 w-6 text-gray-400" />
+              )}
+            </div>
+          </button>
+
+          {showInstructions && (
+            <div className="mt-4 bg-white/70 backdrop-blur-sm rounded-2xl p-6 md:p-8 shadow-lg border border-white/20">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[
+                  {
+                    step: '1',
+                    title: 'Search for Restaurant',
+                    description: 'Use the "Search Restaurant" button to auto-populate the form with verified data from Google Maps.',
+                    icon: Search,
+                    color: 'from-blue-500 to-blue-600'
+                  },
+                  {
+                    step: '2',
+                    title: 'Verify Information',
+                    description: 'Review the auto-populated data and make any necessary corrections or additions.',
+                    icon: CheckCircle,
+                    color: 'from-emerald-500 to-emerald-600'
+                  },
+                  {
+                    step: '3',
+                    title: 'Fetch Photos',
+                    description: 'Click "Fetch Restaurant Photos" to automatically download and upload high-quality images.',
+                    icon: Camera,
+                    color: 'from-purple-500 to-purple-600'
+                  },
+                  {
+                    step: '4',
+                    title: 'Add Details',
+                    description: 'Fill in private dining specific information like room capacity, special features, and detailed descriptions.',
+                    icon: FileText,
+                    color: 'from-pink-500 to-pink-600'
+                  }
+                ].map((item, index) => (
+                  <div key={index} className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-200 hover:shadow-md transition-shadow">
+                    <div className="flex items-start mb-3">
+                      <div className={`w-12 h-12 bg-gradient-to-r ${item.color} rounded-lg flex items-center justify-center mr-4 flex-shrink-0`}>
+                        <item.icon className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <div className="flex items-center mb-2">
+                          <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-200 text-gray-700 rounded-full text-sm font-bold mr-2">
+                            {item.step}
+                          </span>
+                          <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
+                        </div>
+                        <p className="text-sm text-gray-600">{item.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start">
+                  <Zap className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-blue-800 mb-1">Pro Tip:</h4>
+                    <p className="text-sm text-blue-700">
+                      Using the search feature saves time and ensures accurate data. The system automatically fetches restaurant details, coordinates, photos, and more from Google Maps!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Main Form Container */}
+        <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 md:p-8">
           {/* Search Button */}
           <button
             onClick={() => setShowSearchResults(true)}
-            className="w-full mb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center text-lg font-semibold"
+            className="w-full mb-8 bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 px-6 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center text-lg font-semibold group"
           >
-            <Search className="h-6 w-6 mr-3" />
+            <Search className="h-6 w-6 mr-3 group-hover:scale-110 transition-transform" />
             Search Restaurant to Auto-Populate Form
           </button>
 
@@ -396,14 +503,16 @@ export default function SuggestRestaurantPage() {
               )}
 
               {photosProgress && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg">
-                  {photosProgress}
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg flex items-center">
+                  <Camera className="h-5 w-5 mr-2 flex-shrink-0" />
+                  <span>{photosProgress}</span>
                 </div>
               )}
 
               {photosError && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg">
-                  {photosError}
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0" />
+                  <span>{photosError}</span>
                 </div>
               )}
 
@@ -412,9 +521,10 @@ export default function SuggestRestaurantPage() {
                 <button
                   onClick={handleFetchPhotos}
                   disabled={fetchingPhotos}
-                  className="w-full mb-6 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                  className="w-full mb-8 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-6 rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex items-center justify-center font-semibold group"
                 >
-                  {fetchingPhotos ? 'Fetching Photos...' : 'Fetch Restaurant Photos'}
+                  <Camera className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                  {fetchingPhotos ? 'Fetching Photos...' : 'Fetch Restaurant Photos (Optional)'}
                 </button>
               )}
 
@@ -453,7 +563,7 @@ export default function SuggestRestaurantPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl font-semibold text-lg"
+                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 px-8 rounded-xl hover:from-emerald-700 hover:to-teal-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl font-semibold text-lg"
                 >
                   {submitting ? 'Submitting...' : 'Submit Suggestion'}
                 </button>
@@ -461,6 +571,58 @@ export default function SuggestRestaurantPage() {
             </>
           )}
         </div>
+
+        {/* Help Section */}
+        {!success && (
+          <div className="mt-8 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 rounded-3xl p-8 md:p-12 border border-white/20 shadow-xl">
+            <div className="text-center">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+                What Happens Next?
+              </h2>
+              <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+                After you submit your suggestion, here&apos;s what to expect
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  {
+                    step: '1',
+                    title: 'Review Process',
+                    description: 'Our team will review your submission within 24-48 hours',
+                    icon: FileText,
+                    color: 'from-blue-500 to-blue-600'
+                  },
+                  {
+                    step: '2',
+                    title: 'Verification',
+                    description: 'We verify restaurant details and private dining availability',
+                    icon: CheckCircle,
+                    color: 'from-purple-500 to-purple-600'
+                  },
+                  {
+                    step: '3',
+                    title: 'Publication',
+                    description: 'Approved restaurants are added to our directory immediately',
+                    icon: Sparkles,
+                    color: 'from-pink-500 to-pink-600'
+                  }
+                ].map((item, index) => (
+                  <div key={index} className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/30 hover:shadow-lg transition-all">
+                    <div className={`w-16 h-16 bg-gradient-to-r ${item.color} rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg`}>
+                      <item.icon className="h-8 w-8 text-white" />
+                    </div>
+                    <div className="text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 bg-gray-200 text-gray-700 rounded-full text-sm font-bold mb-2">
+                        {item.step}
+                      </span>
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">{item.title}</h3>
+                      <p className="text-sm text-gray-600">{item.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

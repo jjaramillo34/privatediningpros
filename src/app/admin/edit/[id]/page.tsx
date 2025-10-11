@@ -49,6 +49,7 @@ interface Restaurant {
   website?: string;
   description?: string;
   short_description?: string;
+  additional_features?: string;
   image?: string;
   images?: RestaurantImage[];
   rating?: number;
@@ -131,6 +132,7 @@ export default function EditRestaurantPage() {
     neighborhood: '',
     description: '',
     short_description: '',
+    additional_features: '',
     image: '',
     images: [] as RestaurantImage[],
     phone: '',
@@ -209,6 +211,7 @@ export default function EditRestaurantPage() {
             website: data.website || '',
             description: data.description || '',
             short_description: data.short_description || '',
+            additional_features: data.additional_features || '',
             image: data.image || '',
             images: data.images || [],
             rating: data.rating?.toString() || '',
@@ -392,6 +395,7 @@ export default function EditRestaurantPage() {
           website: formData.website.trim() || undefined,
           description: formData.description.trim() || undefined,
           short_description: formData.short_description.trim() || undefined,
+          additional_features: formData.additional_features.trim() || undefined,
           image: formData.image.trim() || undefined,
           images: formData.images || undefined,
           category: formData.category.trim() || undefined,
@@ -405,6 +409,38 @@ export default function EditRestaurantPage() {
           latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
           longitude: formData.longitude ? parseFloat(formData.longitude) : undefined,
           working_hours: formData.working_hours ? JSON.parse(formData.working_hours) : undefined,
+          // Outscraper API fields
+          place_id: formData.place_id.trim() || undefined,
+          google_id: formData.google_id.trim() || undefined,
+          business_status: formData.business_status.trim() || undefined,
+          verified: formData.verified,
+          logo: formData.logo.trim() || undefined,
+          photo: formData.photo.trim() || undefined,
+          street_view: formData.street_view.trim() || undefined,
+          time_zone: formData.time_zone.trim() || undefined,
+          plus_code: formData.plus_code.trim() || undefined,
+          h3: formData.h3.trim() || undefined,
+          service_options: formData.service_options.trim() || undefined,
+          highlights: formData.highlights.trim() || undefined,
+          popular_for: formData.popular_for.trim() || undefined,
+          accessibility: formData.accessibility.trim() || undefined,
+          offerings: formData.offerings.trim() || undefined,
+          dining_options: formData.dining_options.trim() || undefined,
+          amenities: formData.amenities.trim() || undefined,
+          atmosphere: formData.atmosphere.trim() || undefined,
+          crowd: formData.crowd.trim() || undefined,
+          planning: formData.planning.trim() || undefined,
+          payments: formData.payments.trim() || undefined,
+          parking: formData.parking.trim() || undefined,
+          typical_time_spent: formData.typical_time_spent.trim() || undefined,
+          subtypes: formData.subtypes.trim() || undefined,
+          reviews_tags: formData.reviews_tags.trim() || undefined,
+          photos_count: formData.photos_count ? parseInt(formData.photos_count) : undefined,
+          reviews_per_score: formData.reviews_per_score.trim() || undefined,
+          reservation_links: formData.reservation_links.trim() || undefined,
+          booking_appointment_link: formData.booking_appointment_link.trim() || undefined,
+          menu_link: formData.menu_link.trim() || undefined,
+          order_links: formData.order_links.trim() || undefined,
         }),
       });
 
@@ -951,6 +987,23 @@ export default function EditRestaurantPage() {
               />
               <p className="text-xs text-gray-500 mt-1">
                 {formData.short_description.length}/150 characters
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Additional Features
+              </label>
+              <textarea
+                name="additional_features"
+                value={formData.additional_features}
+                onChange={handleInputChange}
+                rows={5}
+                placeholder="Describe additional features, amenities, special services, unique offerings, etc."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                List any special features like valet parking, AV equipment, custom menus, wine pairings, etc.
               </p>
             </div>
 

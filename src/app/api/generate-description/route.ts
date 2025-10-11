@@ -128,7 +128,7 @@ function generateMarkdownDescription(data: any): string {
 
 ${name}, located at ${address}${location ? `, ${location}` : ''}, offers ${privateRooms?.length > 0 ? `a collection of **${privateRooms.filter((r: any) => r.name).length} beautifully designed private event rooms**` : '**exclusive private dining experiences**'} that cater to both business and social gatherings.${category ? ` Specializing in ${category} cuisine,` : ''} this ${price_range ? `${price_range} ` : ''}establishment provides an elegant setting for memorable private events.${contactInfo}${websiteInfo}${capacitySummary}${privateRoomsSection}${featuresSection}---
 
-### Sample Short Description
+### Short Description
 
 > *Located at ${address}${location ? `, ${location}` : ''}, ${name} offers ${privateRooms?.length > 0 ? `${privateRooms.filter((r: any) => r.name).length} exquisitely designed private dining rooms` : 'exclusive private dining experiences'}, ideal for elegant gatherings${privateRooms?.length > 0 ? ` of up to ${privateRooms.reduce((sum: number, room: any) => sum + (room.capacity || 0), 0)} guests` : ''}. ${short_description || `Each space provides intimate, stylish settings with ${category ? `${category} cuisine` : 'fine dining'}, ${price_range ? `${price_range} pricing` : 'premium service'}, and flexible layouts for seated dinners, business meetings, or cocktail receptions`}, ensuring both privacy and sophistication in a modern, elegant environment.*`;
 

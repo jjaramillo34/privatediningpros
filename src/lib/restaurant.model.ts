@@ -38,6 +38,7 @@ export interface IRestaurant extends Document {
   website?: string;
   description?: string; // Full detailed description
   short_description?: string; // Brief description for cards and listings
+  additional_features?: string; // Additional features and amenities description
   image?: string;
   images?: IRestaurantImage[]; // Array of multiple images with metadata
   rating?: number;
@@ -132,6 +133,7 @@ const RestaurantSchema = new Schema<IRestaurant>({
   website: { type: String },
   description: { type: String }, // Full detailed description
   short_description: { type: String }, // Brief description for cards and listings
+  additional_features: { type: String }, // Additional features and amenities description
   image: { type: String },
   images: { type: [RestaurantImageSchema] }, // Array of multiple images with metadata
   rating: { type: Number, min: 0, max: 5 },
