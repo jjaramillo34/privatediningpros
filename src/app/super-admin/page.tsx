@@ -709,6 +709,9 @@ export default function SuperAdminPage() {
                             )}
                           </div>
                         </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Image
+                        </th>
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => handleSort('neighborhood')}
@@ -768,6 +771,40 @@ export default function SuperAdminPage() {
                             <div>
                               <div className="text-sm font-medium text-gray-900">{restaurant.name}</div>
                               <div className="text-sm text-gray-500">{restaurant.category}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center justify-center">
+                              {restaurant.image || restaurant.photo ? (
+                                <div className="relative group">
+                                  <img 
+                                    src={restaurant.image || restaurant.photo} 
+                                    alt={restaurant.name}
+                                    className="w-16 h-16 object-cover rounded-lg border-2 border-gray-200 shadow-sm group-hover:shadow-md transition-shadow"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      const parent = e.currentTarget.parentElement;
+                                      if (parent) {
+                                        parent.innerHTML = '<div class="w-16 h-16 flex items-center justify-center bg-red-50 border-2 border-red-200 rounded-lg"><svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>';
+                                      }
+                                    }}
+                                  />
+                                  {/* Hover tooltip */}
+                                  <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black text-white text-xs rounded whitespace-nowrap z-10">
+                                    Has main image
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="relative group">
+                                  <div className="w-16 h-16 flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg">
+                                    <ImageIcon className="w-6 h-6 text-gray-400" />
+                                  </div>
+                                  {/* Hover tooltip */}
+                                  <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-red-600 text-white text-xs rounded whitespace-nowrap z-10">
+                                    No image - click 🖼️ to upload
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
