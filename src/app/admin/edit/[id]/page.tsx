@@ -1699,9 +1699,9 @@ Can you create a list of private rooms options, website, category, price_range w
                           <img
                             src={image.url}
                             alt={image.alt || `Image ${index + 1}`}
-                            className="w-16 h-16 object-cover rounded border border-gray-300"
+                            className="w-16 h-16 object-cover rounded border border-gray-300 bg-gray-100"
                             onError={(e) => {
-                              e.currentTarget.src = '/placeholder-restaurant.jpg';
+                              e.currentTarget.style.display = 'none';
                             }}
                           />
                         </div>
@@ -2263,9 +2263,13 @@ Can you create a list of private rooms options, website, category, price_range w
                     <img
                       src={imageMetadata.url}
                       alt="Preview"
-                      className="w-full h-48 object-cover rounded border border-gray-300"
+                      className="w-full h-48 object-cover rounded border border-gray-300 bg-gray-100"
                       onError={(e) => {
-                        e.currentTarget.src = '/placeholder-restaurant.jpg';
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent) {
+                          parent.innerHTML = '<div class="w-full h-48 flex items-center justify-center bg-gray-100 rounded border border-gray-300"><span class="text-gray-500 text-sm">Failed to load preview</span></div>';
+                        }
                       }}
                     />
                   </div>

@@ -386,17 +386,19 @@ export default function SuperAdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          urls: [imageUploadModal.imageUrl],
-          restaurantName: imageUploadModal.restaurantName
+          images: [{ url: imageUploadModal.imageUrl }],
+          restaurantName: imageUploadModal.restaurantName,
+          folder: '/restaurants'
         })
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload image to ImageKit');
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error || 'Failed to upload image to ImageKit');
       }
 
       const uploadData = await uploadResponse.json();
-      const imagekitUrl = uploadData.results?.[0]?.url;
+      const imagekitUrl = uploadData.data?.[0]?.url;
 
       if (!imagekitUrl) {
         throw new Error('No ImageKit URL returned');
