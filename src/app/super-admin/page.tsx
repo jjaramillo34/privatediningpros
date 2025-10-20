@@ -16,7 +16,9 @@ import {
   RefreshCw,
   Star,
   MapPin,
-  Trash2
+  Trash2,
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -102,6 +104,20 @@ export default function SuperAdminPage() {
     password: '',
     role: 'user' as 'user' | 'admin' | 'super_admin',
     isActive: true
+  });
+
+  const [imageUploadModal, setImageUploadModal] = useState<{
+    isOpen: boolean;
+    restaurantId: string;
+    restaurantName: string;
+    imageUrl: string;
+    isUploading: boolean;
+  }>({
+    isOpen: false,
+    restaurantId: '',
+    restaurantName: '',
+    imageUrl: '',
+    isUploading: false
   });
 
   useEffect(() => {
@@ -356,6 +372,64 @@ export default function SuperAdminPage() {
     } catch (error) {
       console.error('Error deleting user:', error);
       alert('Error deleting user');
+    }
+  };
+
+  const handleUploadMainImage = async () => {
+    if (!imageUploadModal.imageUrl || !imageUploadModal.restaurantId) return;
+
+    setImageUploadModal(prev => ({ ...prev, isUploading: true }));
+
+    try {
+      // Step 1: Upload image URL to ImageKit
+      const uploadResponse = await fetch('/api/upload-images-from-urls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          urls: [imageUploadModal.imageUrl],
+          restaurantName: imageUploadModal.restaurantName
+        })
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image to ImageKit');
+      }
+
+      const uploadData = await uploadResponse.json();
+      const imagekitUrl = uploadData.results?.[0]?.url;
+
+      if (!imagekitUrl) {
+        throw new Error('No ImageKit URL returned');
+      }
+
+      // Step 2: Update restaurant with new image URL
+      const updateResponse = await fetch(`/api/restaurants/${imageUploadModal.restaurantId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: imagekitUrl,
+          photo: imagekitUrl // Update both fields
+        })
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update restaurant');
+      }
+
+      // Success!
+      await fetchData(); // Refresh data
+      setImageUploadModal({
+        isOpen: false,
+        restaurantId: '',
+        restaurantName: '',
+        imageUrl: '',
+        isUploading: false
+      });
+      alert('✅ Main image uploaded successfully!');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert(`❌ Error: ${error instanceof Error ? error.message : 'Failed to upload image'}`);
+      setImageUploadModal(prev => ({ ...prev, isUploading: false }));
     }
   };
 
@@ -755,6 +829,19 @@ export default function SuperAdminPage() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Link>
+                              <button
+                                onClick={() => setImageUploadModal({
+                                  isOpen: true,
+                                  restaurantId: restaurant._id,
+                                  restaurantName: restaurant.name,
+                                  imageUrl: '',
+                                  isUploading: false
+                                })}
+                                className="text-purple-600 hover:text-purple-900"
+                                title="Upload main image"
+                              >
+                                <ImageIcon className="h-4 w-4" />
+                              </button>
                               {restaurant.status === 'pending' && (
                                 <>
                                   <button
@@ -1497,6 +1584,110 @@ export default function SuperAdminPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Image Upload Modal */}
+      {imageUploadModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Upload className="h-6 w-6 text-purple-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Upload Main Image</h3>
+              </div>
+              <button
+                onClick={() => setImageUploadModal({
+                  isOpen: false,
+                  restaurantId: '',
+                  restaurantName: '',
+                  imageUrl: '',
+                  isUploading: false
+                })}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={imageUploadModal.isUploading}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Restaurant: <strong>{imageUploadModal.restaurantName}</strong>
+              </p>
+              <p className="text-xs text-gray-500">
+                Enter the image URL below. It will be uploaded to ImageKit and set as the main image.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Image URL *
+                </label>
+                <input
+                  type="url"
+                  value={imageUploadModal.imageUrl}
+                  onChange={(e) => setImageUploadModal(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="https://example.com/image.jpg"
+                  disabled={imageUploadModal.isUploading}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Supports: JPG, PNG, WEBP formats
+                </p>
+              </div>
+
+              {/* Preview */}
+              {imageUploadModal.imageUrl && (
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <p className="text-xs font-medium text-gray-700 mb-2">Preview:</p>
+                  <img
+                    src={imageUploadModal.imageUrl}
+                    alt="Preview"
+                    className="w-full h-48 object-cover rounded-md"
+                    onError={(e) => {
+                      e.currentTarget.src = '';
+                      e.currentTarget.className = 'hidden';
+                    }}
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  onClick={() => setImageUploadModal({
+                    isOpen: false,
+                    restaurantId: '',
+                    restaurantName: '',
+                    imageUrl: '',
+                    isUploading: false
+                  })}
+                  disabled={imageUploadModal.isUploading}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUploadMainImage}
+                  disabled={!imageUploadModal.imageUrl || imageUploadModal.isUploading}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {imageUploadModal.isUploading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      <span>Upload to ImageKit</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
