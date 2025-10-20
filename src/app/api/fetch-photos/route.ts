@@ -1,8 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Helper function to poll for async results
+async function pollForResults(taskId: string, apiKey: string, maxAttempts = 40, delayMs = 3000) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Wait before polling (except first attempt)
+    if (attempt > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    
+    const statusUrl = `https://api.outscraper.cloud/requests/${taskId}`;
+    const statusResponse = await fetch(statusUrl, {
+      method: 'GET',
+      headers: { 'X-API-KEY': apiKey }
+    });
+    
+    if (!statusResponse.ok) {
+      continue;
+    }
+    
+    const statusData = await statusResponse.json();
+    
+    // Check if task is completed
+    if (statusData.status === 'Success') {
+      // Check if we got data but it's empty - might need more time
+      if (statusData.data && Array.isArray(statusData.data) && statusData.data.length > 0) {
+        const firstResult = statusData.data[0];
+        if (Array.isArray(firstResult) && firstResult.length === 0 && attempt < 5) {
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 more seconds
+          continue; // Check again
+        }
+      }
+      
+      return statusData;
+    }
+    
+    // Check if task failed
+    if (statusData.status === 'Failed' || statusData.status === 'Error') {
+      throw new Error(`Task failed with status: ${statusData.status}`);
+    }
+  }
+  
+  throw new Error(`Timeout: Task did not complete after ${maxAttempts} attempts`);
+}
+
+// Helper function to try fetching with a specific query
+async function fetchWithQuery(query: string, apiKey: string, photosLimit: number) {
+  const url = new URL('https://api.outscraper.cloud/google-search-images');
+  url.searchParams.append('query', query);
+  url.searchParams.append('async', 'true');
+  url.searchParams.append('perQuery', photosLimit.toString()); // Limit results per query
+  url.searchParams.append('language', 'en'); // English language
+  url.searchParams.append('region', 'US'); // US region for better results
+  url.searchParams.append('fields', 'query,name,image,website,preview'); // Only get image fields
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: { 'X-API-KEY': apiKey }
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const initialData = await response.json();
+  
+  let data = initialData;
+  if (initialData.id) {
+    data = await pollForResults(initialData.id, apiKey);
+  }
+  
+  return data;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { query, photosLimit = 10 } = await request.json();
+    const { query, photosLimit = 5 } = await request.json();
 
     if (!query) {
       return NextResponse.json({ 
@@ -19,28 +91,46 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Build the URL with query parameters for Google Search Images
-    const url = new URL('https://api.outscraper.cloud/google-search-images');
-    url.searchParams.append('query', query);
-    url.searchParams.append('async', 'false'); // Try synchronous first
-
-    // Call Outscraper Google Search Images API
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'X-API-KEY': outscraperApiKey,
+    // Try primary query first
+    let data = await fetchWithQuery(query, outscraperApiKey, photosLimit);
+    
+    // Check if we got results
+    let hasResults = data?.data?.[0]?.length > 0;
+    
+    // If no results, try alternative query formats optimized for Google Images
+    if (!hasResults) {
+      // Try adding "restaurant" keyword
+      const altQuery1 = `${query} restaurant`;
+      data = await fetchWithQuery(altQuery1, outscraperApiKey, photosLimit);
+      hasResults = data?.data?.[0]?.length > 0;
+      
+      // If still no results, try with "photos" keyword for better image search
+      if (!hasResults) {
+        const altQuery2 = `${query} photos`;
+        data = await fetchWithQuery(altQuery2, outscraperApiKey, photosLimit);
+        hasResults = data?.data?.[0]?.length > 0;
       }
-    });
-
-    if (!response.ok) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Failed to fetch photos from Outscraper API',
-        error: `HTTP ${response.status}: ${response.statusText}`
-      }, { status: response.status });
+      
+      // If still no results, try simplifying to just name + city
+      if (!hasResults) {
+        const parts = query.split(',');
+        if (parts.length >= 2) {
+          const simplifiedQuery = `${parts[0].trim()} restaurant ${parts[parts.length - 1].trim()}`;
+          data = await fetchWithQuery(simplifiedQuery, outscraperApiKey, photosLimit);
+          hasResults = data?.data?.[0]?.length > 0;
+        }
+      }
+      
+      // Last resort: try just the restaurant name
+      if (!hasResults) {
+        const parts = query.split(',');
+        if (parts.length >= 1) {
+          const nameOnlyQuery = `${parts[0].trim()} restaurant`;
+          data = await fetchWithQuery(nameOnlyQuery, outscraperApiKey, photosLimit);
+          hasResults = data?.data?.[0]?.length > 0;
+        }
+      }
     }
-
-    const data = await response.json();
 
     // Extract photos from Google Search Images response
     let photos: string[] = [];
@@ -86,6 +176,7 @@ export async function POST(request: NextRequest) {
         return result.url || result.link || result.src || result.image_url;
       }).filter(Boolean).slice(0, photosLimit);
     }
+
 
     return NextResponse.json({ 
       success: true, 

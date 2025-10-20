@@ -59,13 +59,21 @@ export default function SuperAdminPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'restaurants' | 'users' | 'analytics'>('restaurants');
   const [filters, setFilters] = useState({
     search: '',
     status: '',
     category: '',
-    location: ''
+    location: '',
+    letter: ''
   });
+  const [sortConfig, setSortConfig] = useState<{
+    key: 'name' | 'neighborhood' | 'city' | 'rating' | 'createdAt';
+    direction: 'asc' | 'desc';
+  }>({ key: 'name', direction: 'asc' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
   const [rejectionModal, setRejectionModal] = useState<{
     isOpen: boolean;
     restaurantId: string;
@@ -103,10 +111,21 @@ export default function SuperAdminPage() {
   }, [session]);
 
   const fetchData = async () => {
+    setIsRefreshing(true);
     try {
       const [restaurantsRes, usersRes] = await Promise.all([
-        fetch('/api/restaurants'),
-        fetch('/api/users')
+        fetch('/api/restaurants', {
+          cache: 'no-store', // Ensure fresh data on refresh
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        }),
+        fetch('/api/users', {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        })
       ]);
       
       if (restaurantsRes.ok) {
@@ -122,6 +141,7 @@ export default function SuperAdminPage() {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -176,11 +196,20 @@ export default function SuperAdminPage() {
     }
   };
 
+  const handleSort = (key: 'name' | 'neighborhood' | 'city' | 'rating' | 'createdAt') => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+    setCurrentPage(1);
+  };
+
   const filteredRestaurants = restaurants.filter(restaurant => {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       if (!restaurant.name.toLowerCase().includes(searchLower) &&
-          !restaurant.address.toLowerCase().includes(searchLower)) {
+          !restaurant.address.toLowerCase().includes(searchLower) &&
+          !(restaurant.neighborhood?.toLowerCase().includes(searchLower))) {
         return false;
       }
     }
@@ -190,8 +219,59 @@ export default function SuperAdminPage() {
       const location = `${restaurant.city}, ${restaurant.state}`.toLowerCase();
       if (!location.includes(filters.location.toLowerCase())) return false;
     }
+    if (filters.letter) {
+      const firstLetter = restaurant.name.charAt(0).toUpperCase();
+      if (firstLetter !== filters.letter) return false;
+    }
     return true;
   });
+
+  // Sort restaurants
+  const sortedRestaurants = [...filteredRestaurants].sort((a, b) => {
+    const { key, direction } = sortConfig;
+    let aValue: string | number = '';
+    let bValue: string | number = '';
+
+    switch (key) {
+      case 'name':
+        aValue = a.name || '';
+        bValue = b.name || '';
+        break;
+      case 'neighborhood':
+        aValue = a.neighborhood || 'ZZZ'; // Put empty values at the end
+        bValue = b.neighborhood || 'ZZZ';
+        break;
+      case 'city':
+        aValue = a.city || 'ZZZ';
+        bValue = b.city || 'ZZZ';
+        break;
+      case 'rating':
+        aValue = a.rating || 0;
+        bValue = b.rating || 0;
+        break;
+      case 'createdAt':
+        aValue = new Date(a.createdAt).getTime();
+        bValue = new Date(b.createdAt).getTime();
+        break;
+    }
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return direction === 'asc' 
+        ? aValue.localeCompare(bValue) 
+        : bValue.localeCompare(aValue);
+    }
+    
+    return direction === 'asc' ? (aValue as number) - (bValue as number) : (bValue as number) - (aValue as number);
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(sortedRestaurants.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRestaurants = sortedRestaurants.slice(startIndex, endIndex);
+
+  // Alphabet filter options
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
   // User management functions
   const openUserModal = (mode: 'create' | 'edit' | 'delete', user?: User) => {
@@ -325,10 +405,11 @@ export default function SuperAdminPage() {
             <div className="flex items-center space-x-4">
               <button
                 onClick={fetchData}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isRefreshing}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </button>
               <Link
                 href="/admin"
@@ -434,14 +515,20 @@ export default function SuperAdminPage() {
                       type="text"
                       placeholder="Search restaurants..."
                       value={filters.search}
-                      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                      onChange={(e) => {
+                        setFilters(prev => ({ ...prev, search: e.target.value }));
+                        setCurrentPage(1);
+                      }}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   
                   <select
                     value={filters.status}
-                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                    onChange={(e) => {
+                      setFilters(prev => ({ ...prev, status: e.target.value }));
+                      setCurrentPage(1);
+                    }}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All Status</option>
@@ -452,22 +539,82 @@ export default function SuperAdminPage() {
                   
                   <select
                     value={filters.category}
-                    onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                    onChange={(e) => {
+                      setFilters(prev => ({ ...prev, category: e.target.value }));
+                      setCurrentPage(1);
+                    }}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All Categories</option>
-                    {Array.from(new Set(restaurants.map(r => r.category).filter(Boolean))).map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
+                    {Array.from(new Set(restaurants.map(r => r.category).filter(Boolean)))
+                      .sort((a, b) => (a || '').localeCompare(b || ''))
+                      .map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
                   </select>
                   
                   <input
                     type="text"
                     placeholder="Location..."
                     value={filters.location}
-                    onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                    onChange={(e) => {
+                      setFilters(prev => ({ ...prev, location: e.target.value }));
+                      setCurrentPage(1);
+                    }}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+
+                {/* A-Z Navigation */}
+                <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-gray-700">Filter by Name:</h4>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, letter: '' }));
+                        setCurrentPage(1);
+                      }}
+                      className={`text-sm px-3 py-1 rounded ${!filters.letter ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                    >
+                      All
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {alphabet.map(letter => {
+                      const count = restaurants.filter(r => r.name.charAt(0).toUpperCase() === letter).length;
+                      return (
+                        <button
+                          key={letter}
+                          onClick={() => {
+                            setFilters(prev => ({ ...prev, letter: letter }));
+                            setCurrentPage(1);
+                          }}
+                          disabled={count === 0}
+                          className={`w-10 h-10 rounded font-medium text-sm transition-all ${
+                            filters.letter === letter
+                              ? 'bg-blue-600 text-white shadow-md'
+                              : count > 0
+                              ? 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-300'
+                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          }`}
+                          title={`${count} restaurant${count !== 1 ? 's' : ''}`}
+                        >
+                          {letter}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Results Info */}
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-sm text-gray-600">
+                    Showing {startIndex + 1}-{Math.min(endIndex, sortedRestaurants.length)} of {sortedRestaurants.length} restaurants
+                    {filters.letter && ` starting with "${filters.letter}"`}
+                  </p>
+                  <div className="text-sm text-gray-600">
+                    Sorted by: <span className="font-medium capitalize">{sortConfig.key}</span> ({sortConfig.direction === 'asc' ? '↑' : '↓'})
+                  </div>
                 </div>
 
                 {/* Restaurants Table */}
@@ -475,20 +622,63 @@ export default function SuperAdminPage() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Restaurant
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => handleSort('name')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Restaurant</span>
+                            {sortConfig.key === 'name' && (
+                              <span className="text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Location
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => handleSort('neighborhood')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Neighborhood</span>
+                            {sortConfig.key === 'neighborhood' && (
+                              <span className="text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => handleSort('city')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>City</span>
+                            {sortConfig.key === 'city' && (
+                              <span className="text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Rating
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => handleSort('rating')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Rating</span>
+                            {sortConfig.key === 'rating' && (
+                              <span className="text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Created
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => handleSort('createdAt')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Created</span>
+                            {sortConfig.key === 'createdAt' && (
+                              <span className="text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
@@ -496,7 +686,7 @@ export default function SuperAdminPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredRestaurants.map((restaurant) => (
+                      {paginatedRestaurants.map((restaurant) => (
                         <tr key={restaurant._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
@@ -506,7 +696,12 @@ export default function SuperAdminPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center text-sm text-gray-900">
-                              <MapPin className="h-4 w-4 mr-1" />
+                              <MapPin className="h-4 w-4 mr-1 text-purple-500" />
+                              {restaurant.neighborhood || <span className="text-gray-400 italic">Not specified</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
                               {restaurant.city}, {restaurant.state}
                             </div>
                           </td>
@@ -599,6 +794,74 @@ export default function SuperAdminPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        First
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-4 py-2 text-sm font-medium rounded-md ${
+                              currentPage === pageNum
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Last
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -781,7 +1044,11 @@ export default function SuperAdminPage() {
                           return acc;
                         }, {} as Record<string, number>)
                       )
-                        .sort(([,a], [,b]) => b - a)
+                        .sort(([a, countA], [b, countB]) => {
+                          // First sort by count (descending), then by name (ascending) for ties
+                          if (countB !== countA) return countB - countA;
+                          return a.localeCompare(b);
+                        })
                         .slice(0, 5)
                         .map(([category, count]) => {
                           const percentage = restaurants.length > 0 ? (count / restaurants.length) * 100 : 0;

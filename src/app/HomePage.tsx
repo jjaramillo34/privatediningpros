@@ -225,7 +225,8 @@ export default function HomePage({ restaurants }: HomePageProps) {
 
   // Sort restaurants
   const sortedRestaurants = useMemo(() => {
-    const sorted = [...filteredRestaurants].sort((a, b) => {
+    return [...filteredRestaurants].sort((a, b) => {
+      // Primary sort based on selected option
       let comparison = 0;
       
       switch (sortBy) {
@@ -248,10 +249,15 @@ export default function HomePage({ restaurants }: HomePageProps) {
           break;
       }
       
-      return sortOrder === 'asc' ? -comparison : comparison;
+      const primarySort = sortOrder === 'asc' ? -comparison : comparison;
+      
+      // If primary sort values are equal, sort by name (A-Z) as secondary sort
+      if (primarySort === 0) {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      
+      return primarySort;
     });
-    
-    return sorted;
   }, [filteredRestaurants, sortBy, sortOrder]);
 
   // Pagination
@@ -469,6 +475,7 @@ export default function HomePage({ restaurants }: HomePageProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {restaurants
                 .filter(r => r.featured)
+                .sort((a, b) => a.name.localeCompare(b.name))
                 .slice(0, 6)
                 .map((restaurant) => (
                   <Link 

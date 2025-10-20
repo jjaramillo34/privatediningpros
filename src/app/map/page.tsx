@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { IRestaurant } from '@/lib/restaurant.model';
 import RestaurantMap from '@/components/RestaurantMap';
-import { Search, Filter, X, MapPin, Star, Building2, Loader2, Phone, Globe, Clock, Users, ChevronLeft } from 'lucide-react';
+import { Search, Filter, X, MapPin, Star, Building2, Loader2, Phone, Globe, Clock, Users, ChevronLeft, Heart, MoreHorizontal, Bell, SortAsc } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -26,13 +26,14 @@ export default function MapPage() {
   const [selectedRestaurantDetails, setSelectedRestaurantDetails] = useState<IRestaurant | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [flyToRestaurant, setFlyToRestaurant] = useState<string | undefined>();
 
   // Fetch restaurants data
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/restaurants');
+        const response = await fetch('/api/restaurants?status=approved');
         if (!response.ok) {
           throw new Error('Failed to fetch restaurants');
         }
@@ -55,6 +56,7 @@ export default function MapPage() {
       setSelectedRestaurant(restaurantId);
       setSelectedRestaurantDetails(restaurant);
       setSidebarOpen(true);
+      setFlyToRestaurant(restaurantId); // Trigger fly-to
     }
   };
 
@@ -360,7 +362,7 @@ export default function MapPage() {
         {/* View Details Button */}
         <div className="pt-4 border-t border-gray-200">
           <Link
-            href={`/restaurant/${restaurant._id}`}
+            href={`/restaurant/${restaurant._id?.toString() || ''}`}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-center block font-medium"
           >
             View Full Details
@@ -372,145 +374,233 @@ export default function MapPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-20"></div>
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-          <div className="text-center">
-            <div className="flex items-center justify-center mb-6">
-              <Link href="/" className="flex items-center text-blue-200 hover:text-white transition-colors">
-                <ChevronLeft className="h-5 w-5 mr-2" />
-                Back to Home
-              </Link>
-            </div>
-            <h1 className="text-4xl lg:text-6xl font-bold mb-6 flex items-center justify-center animate-fade-in">
-              <MapPin className="h-12 w-12 lg:h-16 lg:w-16 mr-4 text-blue-300 animate-pulse" />
-              Restaurant Map
-            </h1>
-            <p className="text-xl lg:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto animate-fade-in-delay">
-              Discover the finest private dining experiences across New York City. 
-              Click on any restaurant to explore their exclusive venues and private rooms.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-lg px-6 py-3">
-                <Building2 className="h-5 w-5 mr-2 text-blue-300" />
-                <span className="text-lg font-semibold">
-                  {filteredRestaurants.length} Restaurants
-                </span>
-              </div>
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center px-6 py-3 bg-white text-blue-900 rounded-lg hover:bg-blue-50 transition-colors font-semibold"
-              >
-                <Filter className="h-5 w-5 mr-2" />
-                {showFilters ? 'Hide' : 'Show'} Filters
-              </button>
-            </div>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-200 px-4 py-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Link href="/" className="flex items-center text-blue-600 hover:text-blue-800 transition-colors">
+              <ChevronLeft className="h-5 w-5 mr-1" />
+              <span className="font-medium">Back</span>
+            </Link>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <select 
+              value={filters.priceRange}
+              onChange={(e) => setFilters(prev => ({ ...prev, priceRange: e.target.value }))}
+              className="px-4 py-2 bg-white border-2 border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 shadow-sm hover:shadow-md transition-all"
+            >
+              <option value="">💰 PRICE</option>
+              <option value="$$">$$</option>
+              <option value="$$$">$$$</option>
+              <option value="$$$$">$$$$</option>
+            </select>
+            <select 
+              value={filters.capacity}
+              onChange={(e) => setFilters(prev => ({ ...prev, capacity: e.target.value }))}
+              className="px-4 py-2 bg-white border-2 border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 shadow-sm hover:shadow-md transition-all"
+            >
+              <option value="">👥 CAPACITY</option>
+              <option value="small">Small (2-10)</option>
+              <option value="medium">Medium (11-25)</option>
+              <option value="large">Large (26-50)</option>
+              <option value="xl">XL (50+)</option>
+            </select>
+            <select 
+              value={filters.category}
+              onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+              className="px-4 py-2 bg-white border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm font-medium text-gray-700 shadow-sm hover:shadow-md transition-all"
+            >
+              <option value="">⭐ AMENITIES</option>
+              <option value="Private Rooms">Private Rooms</option>
+              <option value="Wine Cellar">Wine Cellar</option>
+              <option value="Outdoor Space">Outdoor Space</option>
+            </select>
+            <button className="p-2 text-gray-600 hover:text-blue-600 transition-colors">
+              <MoreHorizontal className="h-5 w-5" />
+            </button>
+            <button className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 text-sm font-semibold shadow-lg hover:shadow-xl transition-all">
+              <Bell className="h-4 w-4 mr-2" />
+              SAVE SEARCH
+            </button>
           </div>
         </div>
         
-        {/* Decorative elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-20 h-20 bg-blue-400/20 rounded-full blur-xl"></div>
-          <div className="absolute top-40 right-20 w-32 h-32 bg-indigo-400/20 rounded-full blur-xl"></div>
-          <div className="absolute bottom-20 left-1/4 w-24 h-24 bg-blue-300/20 rounded-full blur-xl"></div>
+        <div className="mt-6">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-900 bg-clip-text text-transparent">
+            {filteredRestaurants.length} Private Dining Restaurants in New York - Updated Daily
+          </h1>
+          <div className="flex items-center mt-3">
+            <span className="text-sm font-semibold text-gray-700 mr-4">SORT BY:</span>
+            <select className="px-4 py-2 bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium shadow-sm hover:shadow-md transition-all">
+              <option>DEFAULT</option>
+              <option>PRICE LOW TO HIGH</option>
+              <option>PRICE HIGH TO LOW</option>
+              <option>RATING</option>
+              <option>DISTANCE</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
-      {showFilters && (
-        <div className="bg-white border-b shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search restaurants..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+      {/* Main Content */}
+      <div className="flex h-[calc(100vh-140px)]">
+        {/* Left Sidebar - Restaurant Listings */}
+        <div className="w-1/4 bg-white border-r border-gray-200 overflow-y-auto">
+          {/* Info Banner */}
+          <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 p-6 text-white">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <Building2 className="h-7 w-7 text-white" />
+                </div>
               </div>
-
-              {/* Category */}
-              <select
-                value={filters.category}
-                onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Categories</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-
-              {/* Price Range */}
-              <select
-                value={filters.priceRange}
-                onChange={(e) => setFilters(prev => ({ ...prev, priceRange: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Prices</option>
-                {priceRanges.map(range => (
-                  <option key={range} value={range}>{range}</option>
-                ))}
-              </select>
-
-              {/* Neighborhood */}
-              <select
-                value={filters.neighborhood}
-                onChange={(e) => setFilters(prev => ({ ...prev, neighborhood: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Neighborhoods</option>
-                {neighborhoods.map(neighborhood => (
-                  <option key={neighborhood} value={neighborhood}>{neighborhood}</option>
-                ))}
-              </select>
-            </div>
-
-            {hasActiveFilters && (
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-sm text-gray-600">
-                  Active filters applied
-                </span>
-                <button
-                  onClick={clearFilters}
-                  className="flex items-center text-blue-600 hover:text-blue-800 transition-colors text-sm"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Clear All Filters
+              <div>
+                <h3 className="text-lg font-bold text-white mb-2">Looking for Private Dining?</h3>
+                <p className="text-sm text-blue-100 leading-relaxed">
+                  Our curated selection offers the finest private dining experiences in NYC. 
+                  Each venue features exclusive private rooms perfect for special occasions.
+                </p>
+                <button className="mt-3 px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-semibold rounded-lg hover:bg-white/30 transition-all border border-white/30">
+                  LEARN MORE
                 </button>
               </div>
-            )}
+            </div>
+          </div>
+
+          {/* Pricing Info */}
+          <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-4 text-white">
+            <div className="flex items-center space-x-2">
+              <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                <span className="text-sm">💰</span>
+              </div>
+              <p className="text-sm font-medium">
+                Prices shown are base rates only and don't include service charges, taxes, or gratuity. 
+                Contact each restaurant for complete pricing details.
+              </p>
+            </div>
+          </div>
+
+          {/* Restaurant Listings */}
+          <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">FEATURED</h2>
+              <span className="text-sm text-gray-500">{filteredRestaurants.length} restaurants</span>
+            </div>
+
+            {filteredRestaurants.slice(0, 10).map((restaurant, index) => (
+              <div
+                key={restaurant._id?.toString() || `restaurant-${index}`}
+                className="bg-white border-2 border-gray-100 rounded-xl overflow-hidden hover:shadow-xl hover:border-blue-200 transition-all duration-300 cursor-pointer group"
+                onClick={() => handleRestaurantSelect(restaurant._id?.toString() || '')}
+              >
+                {/* Restaurant Image */}
+                <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200">
+                  <Image
+                    src={restaurant.image || '/hero-restaurant.jpg'}
+                    alt={restaurant.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  {restaurant.featured && (
+                    <div className="absolute top-3 left-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg">
+                      ⭐ FEATURED
+                    </div>
+                  )}
+                  <button className="absolute top-3 right-3 p-2 bg-white/90 hover:bg-white rounded-full transition-all shadow-lg hover:shadow-xl">
+                    <Heart className="h-4 w-4 text-red-500 hover:text-red-600" />
+                  </button>
+                </div>
+
+                {/* Restaurant Info */}
+                <div className="p-5">
+                  <h3 className="font-bold text-gray-900 text-sm mb-2 group-hover:text-blue-600 transition-colors">
+                    PRIVATE DINING AT {restaurant.name.toUpperCase()}
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-3 flex items-center">
+                    <MapPin className="h-3 w-3 mr-1 text-blue-500" />
+                    {restaurant.address}
+                  </p>
+                  
+                  {/* Price */}
+                  <div className="flex items-center mb-3">
+                    <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                      {restaurant.price_range || '$$$'} 
+                    </span>
+                    <span className="text-sm text-gray-500 ml-2">per person</span>
+                    <button className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors">
+                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Rating */}
+                  {restaurant.rating && (
+                    <div className="flex items-center mb-3">
+                      <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg">
+                        <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                        <span className="text-sm font-bold text-gray-900 ml-1">
+                          {restaurant.rating}/5
+                        </span>
+                      </div>
+                      <span className="text-sm text-gray-500 ml-2">
+                        ({restaurant.reviews} reviews)
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Private Rooms Info */}
+                  {restaurant.privateRooms && restaurant.privateRooms.length > 0 && (
+                    <div className="flex items-center text-sm text-gray-600 mb-3 bg-blue-50 px-3 py-2 rounded-lg">
+                      <Users className="h-4 w-4 mr-2 text-blue-500" />
+                      <span className="font-medium">
+                        {restaurant.privateRooms.length} private room{restaurant.privateRooms.length > 1 ? 's' : ''} • 
+                        Up to {Math.max(...restaurant.privateRooms.map(room => room.capacity || 0))} guests
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Category */}
+                  {restaurant.category && (
+                    <div className="text-sm text-gray-600 mb-3 bg-purple-50 px-3 py-1 rounded-lg inline-block">
+                      <span className="font-medium text-purple-700">{restaurant.category}</span>
+                    </div>
+                  )}
+
+                  {/* Contact Info */}
+                  <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
+                    <span className="text-gray-500 text-xs">
+                      Listed by {restaurant.submittedBy || 'Private Dining Pros'}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      {restaurant.phone && (
+                        <button className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all">
+                          <Phone className="h-4 w-4" />
+                        </button>
+                      )}
+                      {restaurant.website && (
+                        <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                          <Globe className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* Main Content */}
-      <div className="flex h-[calc(100vh-180px)] lg:h-[calc(100vh-220px)]">
-        {/* Map Area */}
-        <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:w-2/3' : 'w-full'}`}>
-          <div className="h-full">
-            <RestaurantMap 
-              restaurants={filteredRestaurants}
-              selectedRestaurant={selectedRestaurant}
-              onRestaurantSelect={handleRestaurantSelect}
-            />
-          </div>
+        {/* Right Side - Map */}
+        <div className="w-3/4 h-full">
+          <RestaurantMap 
+            restaurants={filteredRestaurants}
+            selectedRestaurant={selectedRestaurant}
+            onRestaurantSelect={handleRestaurantSelect}
+            flyToRestaurant={flyToRestaurant}
+          />
         </div>
-
-        {/* Sidebar */}
-        {sidebarOpen && selectedRestaurantDetails && (
-          <div className="w-full lg:w-1/3 bg-white border-l border-gray-200 shadow-lg">
-            <RestaurantDetails restaurant={selectedRestaurantDetails} />
-          </div>
-        )}
       </div>
     </div>
   );

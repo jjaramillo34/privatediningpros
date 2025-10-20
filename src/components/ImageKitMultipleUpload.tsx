@@ -67,7 +67,6 @@ export default function ImageKitMultipleUpload({
   };
 
   const handleUploadError = (error: any) => {
-    console.error('❌ ImageKit upload error:', error);
     setUploading(false);
     setError('Upload failed. Please try again.');
   };
@@ -160,7 +159,7 @@ export default function ImageKitMultipleUpload({
                   alt={image.alt || `Restaurant image ${index + 1}`}
                   className="w-full h-32 object-cover rounded-lg border border-gray-200"
                   onError={(e) => {
-                    console.error('Image load error:', image.url);
+                    // Silently handle image load errors (e.g., external URLs that may be blocked)
                     e.currentTarget.style.display = 'none';
                   }}
                 />

@@ -7,6 +7,7 @@ import { Building2, Plus, DoorOpen, MapPin, RefreshCw, CheckCircle, AlertTriangl
 interface PrivateRoom {
   name: string;
   capacity: number;
+  setup?: string;
   description?: string;
 }
 

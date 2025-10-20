@@ -43,14 +43,26 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/featured" className="flex items-center text-gray-300 hover:text-yellow-400 hover:translate-x-1 transition-all duration-200 group">
+                  <span className="w-2 h-2 bg-yellow-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
+                  <span className="text-sm md:text-base">Featured</span>
+                </Link>
+              </li>
+              <li>
                 <Link href="/map" className="flex items-center text-gray-300 hover:text-blue-400 hover:translate-x-1 transition-all duration-200 group">
                   <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
                   <span className="text-sm md:text-base">Explore Map</span>
                 </Link>
               </li>
               <li>
-                <Link href="/suggest" className="flex items-center text-gray-300 hover:text-blue-400 hover:translate-x-1 transition-all duration-200 group">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
+                <Link href="/insights" className="flex items-center text-gray-300 hover:text-purple-400 hover:translate-x-1 transition-all duration-200 group">
+                  <span className="w-2 h-2 bg-purple-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
+                  <span className="text-sm md:text-base">Market Insights</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/suggest" className="flex items-center text-gray-300 hover:text-green-400 hover:translate-x-1 transition-all duration-200 group">
+                  <span className="w-2 h-2 bg-green-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
                   <span className="text-sm md:text-base">Suggest Restaurant</span>
                 </Link>
               </li>

@@ -32,7 +32,6 @@ export default function ImageKitUpload({
   }, []);
 
   const handleUploadSuccess = (result: any) => {
-    console.log('✅ ImageKit upload successful:', result);
     setUploading(false);
     setError(null);
     
@@ -44,7 +43,6 @@ export default function ImageKitUpload({
   };
 
   const handleUploadError = (error: any) => {
-    console.error('❌ ImageKit upload error:', error);
     setUploading(false);
     setError('Upload failed. Please try again.');
   };
@@ -98,7 +96,7 @@ export default function ImageKitUpload({
               alt="Restaurant image"
               className="w-full h-48 object-cover rounded-lg border border-gray-200"
               onError={(e) => {
-                console.error('Image load error:', currentImage);
+                // Silently handle image load errors (e.g., external URLs that may be blocked)
                 e.currentTarget.style.display = 'none';
               }}
             />

@@ -47,19 +47,26 @@ export default function RestaurantSearchModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-          <h2 className="text-2xl font-bold text-gray-900">Search Restaurant</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
+    <div className="fixed inset-0 bg-white z-50 flex flex-col animate-in fade-in duration-300">
+      {/* Header - Fixed at top */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center space-x-3">
+          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <h2 className="text-2xl font-bold text-gray-900 ml-4">Search Restaurant</h2>
         </div>
+        <button
+          onClick={onClose}
+          className="text-gray-500 hover:text-gray-700 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
 
-        <div className="p-6">
+      {/* Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto p-6">
           <div className="mb-6">
             <p className="text-gray-600 mb-4">
               Search for a restaurant to auto-populate the form with verified data from Google Maps.

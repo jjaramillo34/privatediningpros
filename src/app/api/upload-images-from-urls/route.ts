@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Limit to 10 images to avoid overwhelming the system
-    const limitedImages = images.slice(0, 10);
+    // Limit to 5 images to avoid overwhelming the system
+    const limitedImages = images.slice(0, 5);
 
     // Upload images to ImageKit
     const uploadResults = await uploadImagesFromUrls(

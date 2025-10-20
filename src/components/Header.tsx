@@ -48,6 +48,13 @@ export default function Header() {
               <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full"></div>
             </Link>
             <Link 
+              href="/featured" 
+              className="px-5 py-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 font-medium relative group"
+            >
+              Featured
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full"></div>
+            </Link>
+            <Link 
               href="/map" 
               className="px-5 py-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 font-medium relative group"
             >
@@ -141,6 +148,13 @@ export default function Header() {
                 onClick={() => setIsMenuOpen(false)}
               >
                 🏪 Restaurants
+              </Link>
+              <Link 
+                href="/featured" 
+                className="px-5 py-4 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 font-medium text-base"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                ⭐ Featured
               </Link>
               <Link 
                 href="/map" 

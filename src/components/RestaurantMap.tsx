@@ -8,9 +8,10 @@ interface RestaurantMapProps {
   restaurants: IRestaurant[];
   selectedRestaurant?: string;
   onRestaurantSelect?: (restaurantId: string) => void;
+  flyToRestaurant?: string;
 }
 
-export default function RestaurantMap({ restaurants, selectedRestaurant, onRestaurantSelect }: RestaurantMapProps) {
+export default function RestaurantMap({ restaurants, selectedRestaurant, onRestaurantSelect, flyToRestaurant }: RestaurantMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const markers = useRef<any[]>([]);
@@ -21,7 +22,6 @@ export default function RestaurantMap({ restaurants, selectedRestaurant, onResta
   useEffect(() => {
     // Only load mapbox if we have the token
     if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
-      console.warn('Mapbox token not found');
       return;
     }
 
@@ -56,7 +56,7 @@ export default function RestaurantMap({ restaurants, selectedRestaurant, onResta
         map.current.addControl(new mapboxglModule.NavigationControl(), 'top-right');
 
       } catch (error) {
-        console.error('Error loading Mapbox:', error);
+        // Error loading Mapbox
       }
     };
 
@@ -183,6 +183,25 @@ export default function RestaurantMap({ restaurants, selectedRestaurant, onResta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurants, selectedRestaurant, isLoaded, mapboxgl]);
 
+  // Fly to restaurant when flyToRestaurant prop changes
+  useEffect(() => {
+    if (flyToRestaurant && map.current && isLoaded) {
+      const restaurant = restaurants.find(r => r._id?.toString() === flyToRestaurant);
+      if (restaurant && restaurant.latitude && restaurant.longitude) {
+        const lat = Number(restaurant.latitude);
+        const lng = Number(restaurant.longitude);
+        
+        if (!isNaN(lat) && !isNaN(lng)) {
+          map.current.flyTo({
+            center: [lng, lat],
+            zoom: 15,
+            duration: 1000
+          });
+        }
+      }
+    }
+  }, [flyToRestaurant, restaurants, isLoaded]);
+
   if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
     return (
       <div className="h-96 md:h-[500px] bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center rounded-2xl">
@@ -196,30 +215,34 @@ export default function RestaurantMap({ restaurants, selectedRestaurant, onResta
   }
 
   return (
-    <div className="relative">
+    <div className="relative h-full">
       <div 
         ref={mapContainer} 
-        className="w-full h-96 md:h-[500px] rounded-2xl"
+        className="w-full h-full"
         style={{ minHeight: '400px' }}
       />
       
-      {/* Map Legend */}
-      <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10">
-        <h5 className="font-semibold text-gray-900 mb-3">Legend</h5>
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-blue-500 rounded-full border border-white shadow-sm"></div>
-            <span className="text-sm text-gray-600">Restaurants</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-yellow-500 rounded-full border border-white shadow-sm flex items-center justify-center">
-              <Star className="w-2 h-2 text-white fill-current" />
+      {/* Map Legend - Top Left */}
+      <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 p-4 z-10">
+        <h5 className="font-bold text-gray-900 mb-3 text-sm">Map Legend</h5>
+        <div className="space-y-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
             </div>
-            <span className="text-sm text-gray-600">Featured</span>
+            <span className="text-sm font-medium text-gray-700">Restaurants</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-green-500 rounded-full border border-white shadow-sm"></div>
-            <span className="text-sm text-gray-600">Top Rated (4.5+)</span>
+          <div className="flex items-center space-x-3">
+            <div className="w-5 h-5 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+              <Star className="w-2.5 h-2.5 text-white fill-current" />
+            </div>
+            <span className="text-sm font-medium text-gray-700">Featured</span>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+            </div>
+            <span className="text-sm font-medium text-gray-700">Top Rated (4.5+)</span>
           </div>
         </div>
       </div>
@@ -254,23 +277,6 @@ export default function RestaurantMap({ restaurants, selectedRestaurant, onResta
         </div>
       )}
 
-      {/* Map Controls */}
-      <div className="absolute top-4 right-4 flex flex-col space-y-2 z-10">
-        <button 
-          className="bg-white rounded-lg shadow-md p-2 hover:shadow-lg transition-shadow"
-          onClick={() => {
-            if (map.current) {
-              map.current.flyTo({
-                center: [-73.9857, 40.7484],
-                zoom: 11,
-                duration: 1000
-              });
-            }
-          }}
-        >
-          <MapPin className="h-5 w-5 text-gray-600" />
-        </button>
-      </div>
     </div>
   );
 }

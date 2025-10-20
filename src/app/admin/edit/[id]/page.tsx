@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
-import { Building2, Save, ArrowLeft, Trash2, Plus, X, Sparkles, Eye, Copy } from 'lucide-react';
+import { Building2, Save, ArrowLeft, Trash2, Plus, X, Sparkles, Eye, Copy, Image as ImageIcon, Edit3, RefreshCw, Database, Download } from 'lucide-react';
 import Link from 'next/link';
 import ImageKitUpload from '@/components/ImageKitUpload';
 import ImageKitMultipleUpload from '@/components/ImageKitMultipleUpload';
@@ -11,6 +11,7 @@ import ImageKitMultipleUpload from '@/components/ImageKitMultipleUpload';
 interface PrivateRoom {
   name: string;
   capacity: number;
+  setup?: string;
   description?: string;
 }
 
@@ -125,6 +126,48 @@ export default function EditRestaurantPage() {
   const [generatedDescription, setGeneratedDescription] = useState('');
   const [showDescriptionPreview, setShowDescriptionPreview] = useState(false);
   const [descriptionFormat, setDescriptionFormat] = useState<'markdown' | 'json'>('markdown');
+  
+  // JSON Parser states
+  const [jsonInput, setJsonInput] = useState('');
+  const [showJsonParser, setShowJsonParser] = useState(false);
+  const [jsonParseError, setJsonParseError] = useState('');
+  const [showPromptGenerator, setShowPromptGenerator] = useState(false);
+  const [generatedPrompt, setGeneratedPrompt] = useState('');
+  
+  // Notification states
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ show: false, message: '', type: 'success' });
+  
+  // Image metadata editor states
+  const [showImageMetadataEditor, setShowImageMetadataEditor] = useState(false);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
+  const [imageMetadata, setImageMetadata] = useState<RestaurantImage>({
+    url: '',
+    alt: '',
+    title: '',
+    source: 'Manual Upload',
+    website: {
+      url: '',
+      title: '',
+      name: ''
+    },
+    dimensions: {
+      width: 0,
+      height: 0
+    },
+    position: 1
+  });
+
+  // Data enhancement states
+  const [isEnhancingData, setIsEnhancingData] = useState(false);
+  const [enhancementProgress, setEnhancementProgress] = useState('');
+  
+  // Image fetching states
+  const [isFetchingImages, setIsFetchingImages] = useState(false);
+  const [imageFetchProgress, setImageFetchProgress] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -185,8 +228,16 @@ export default function EditRestaurantPage() {
     order_links: ''
   });
   const [privateRooms, setPrivateRooms] = useState<PrivateRoom[]>([
-    { name: '', capacity: 0, description: '' }
+    { name: '', capacity: 0, setup: '', description: '' }
   ]);
+
+  // Show notification helper
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+      setNotification({ show: false, message: '', type: 'success' });
+    }, 3000);
+  };
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -255,12 +306,12 @@ export default function EditRestaurantPage() {
             menu_link: data.menu_link || '',
             order_links: data.order_links || ''
           });
-          setPrivateRooms(data.privateRooms || [{ name: '', capacity: 0, description: '' }]);
+          setPrivateRooms(data.privateRooms || [{ name: '', capacity: 0, setup: '', description: '' }]);
         } else {
-          console.error('Failed to fetch restaurant:', response.status);
+          // Failed to fetch restaurant
         }
       } catch (error) {
-        console.error('Error fetching restaurant:', error);
+        // Error fetching restaurant
       } finally {
         setLoading(false);
       }
@@ -271,6 +322,384 @@ export default function EditRestaurantPage() {
     }
   }, [restaurantId]);
 
+
+  // Image metadata management functions
+  const openImageMetadataEditor = (index?: number) => {
+    if (index !== undefined && formData.images?.[index]) {
+      // Edit existing image
+      setEditingImageIndex(index);
+      setImageMetadata(formData.images[index]);
+    } else {
+      // Add new image
+      setEditingImageIndex(null);
+      setImageMetadata({
+        url: '',
+        alt: `${formData.name} - Image ${(formData.images?.length || 0) + 1}`,
+        title: formData.name || '',
+        source: 'Manual Upload',
+        website: {
+          url: formData.website || '',
+          title: formData.name || '',
+          name: ''
+        },
+        dimensions: {
+          width: 0,
+          height: 0
+        },
+        position: (formData.images?.length || 0) + 1
+      });
+    }
+    setShowImageMetadataEditor(true);
+  };
+
+  const closeImageMetadataEditor = () => {
+    setShowImageMetadataEditor(false);
+    setEditingImageIndex(null);
+  };
+
+  const saveImageMetadata = () => {
+    const images = [...(formData.images || [])];
+    
+    if (editingImageIndex !== null) {
+      // Update existing image
+      images[editingImageIndex] = imageMetadata;
+      showNotification('Image metadata updated successfully!');
+    } else {
+      // Add new image
+      images.push(imageMetadata);
+      showNotification('Image added successfully!');
+    }
+    
+    setFormData(prev => ({ ...prev, images }));
+    closeImageMetadataEditor();
+  };
+
+  const deleteImage = (index: number) => {
+    if (confirm('Are you sure you want to delete this image?')) {
+      const images = [...(formData.images || [])];
+      images.splice(index, 1);
+      // Update positions
+      images.forEach((img, idx) => {
+        img.position = idx + 1;
+      });
+      setFormData(prev => ({ ...prev, images }));
+      showNotification('Image deleted successfully!');
+    }
+  };
+
+  // Fetch images function
+  const fetchRestaurantImages = async () => {
+    if (!restaurant) return;
+    
+    setIsFetchingImages(true);
+    setImageFetchProgress('Searching for restaurant images...');
+    
+    // Progress indicator updater
+    let elapsedSeconds = 0;
+    const progressMessages = [
+      { time: 0, message: 'Searching for restaurant images...' },
+      { time: 10, message: 'Attempt 1/5: Searching with full restaurant details...' },
+      { time: 20, message: 'Attempt 2/5: Trying with "restaurant" keyword...' },
+      { time: 30, message: 'Attempt 3/5: Searching with "photos" keyword...' },
+      { time: 40, message: 'Attempt 4/5: Simplifying search query...' },
+      { time: 50, message: 'Attempt 5/5: Final attempt with restaurant name only...' },
+      { time: 60, message: 'Still searching... This may take up to 2 minutes...' }
+    ];
+    
+    const progressInterval = setInterval(() => {
+      elapsedSeconds += 5;
+      const currentMessage = progressMessages
+        .reverse()
+        .find(pm => elapsedSeconds >= pm.time);
+      if (currentMessage) {
+        setImageFetchProgress(currentMessage.message);
+      }
+    }, 5000); // Update every 5 seconds
+    
+    try {
+      // Construct query string similar to suggest page
+      const query = `${restaurant.name}, ${restaurant.address}${restaurant.city ? ', ' + restaurant.city : ''}${restaurant.state ? ', ' + restaurant.state : ''}`;
+      
+      const photosResponse = await fetch('/api/fetch-photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: query,
+          photosLimit: 5
+        })
+      });
+      
+      clearInterval(progressInterval);
+      
+      if (photosResponse.ok) {
+        const photosData = await photosResponse.json();
+        
+        if (photosData.photos && photosData.photos.length > 0) {
+          setImageFetchProgress(`Found ${photosData.photos.length} images! Uploading to ImageKit...`);
+          
+          // Upload images to ImageKit using bulk upload API
+          const uploadResponse = await fetch('/api/upload-images-from-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              images: photosData.photos,
+              restaurantName: restaurant.name,
+              folder: '/restaurants'
+            })
+          });
+          
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            
+            if (uploadData.success && uploadData.data && uploadData.data.length > 0) {
+              // Format images with metadata
+              const formattedImages = uploadData.data.map((uploadResult: any, idx: number) => ({
+                url: uploadResult.url,
+                fileId: uploadResult.fileId,
+                name: uploadResult.name,
+                alt: `${restaurant.name}, ${restaurant.address} - Image ${idx + 1}`,
+                title: uploadResult.fileName || `${restaurant.name}`,
+                source: 'Outscraper',
+                website: null,
+                dimensions: null,
+                position: idx + 1
+              }));
+              
+              setFormData(prev => ({
+                ...prev,
+                images: formattedImages as RestaurantImage[]
+              }));
+              
+              showNotification(`Successfully fetched and uploaded ${formattedImages.length} images!`);
+            } else {
+              showNotification('Failed to upload images to ImageKit.', 'error');
+            }
+          } else {
+            showNotification('Failed to upload images to ImageKit.', 'error');
+          }
+        } else {
+          showNotification('No images found for this restaurant.', 'error');
+        }
+      } else {
+        const errorData = await photosResponse.json();
+        throw new Error(errorData.error || 'Failed to fetch photos');
+      }
+    } catch (error) {
+      clearInterval(progressInterval);
+      showNotification('Error fetching images: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsFetchingImages(false);
+      setImageFetchProgress('');
+    }
+  };
+
+  // Data enhancement function
+  const enhanceRestaurantData = async () => {
+    if (!restaurant) return;
+    
+    setIsEnhancingData(true);
+    setEnhancementProgress('Starting data enhancement...');
+    
+    try {
+      // Step 1: Fetch additional data from Outscraper
+      setEnhancementProgress('Fetching additional data from Outscraper...');
+      const outscraperResponse = await fetch('/api/outscraper-enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: restaurant.name,
+          address: restaurant.address,
+          city: restaurant.city,
+          state: restaurant.state
+        })
+      });
+      
+      if (outscraperResponse.ok) {
+        const outscraperData = await outscraperResponse.json();
+        
+        // Check if API returned an error
+        if (outscraperData.error) {
+          throw new Error(outscraperData.error + (outscraperData.details ? `: ${outscraperData.details}` : ''));
+        }
+        
+        // Step 2: Fetch photos (optional, don't fail if it errors)
+        let photosData = null;
+        try {
+          setEnhancementProgress('Fetching restaurant photos...');
+          const query = `${restaurant.name}, ${restaurant.address}${restaurant.city ? ', ' + restaurant.city : ''}${restaurant.state ? ', ' + restaurant.state : ''}`;
+          
+          const photosResponse = await fetch('/api/fetch-photos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: query,
+              photosLimit: 5
+            })
+          });
+          
+          if (photosResponse.ok) {
+            photosData = await photosResponse.json();
+          }
+        } catch (photoError) {
+          // Silently continue if photos fetch fails
+        }
+        
+        // Step 3: Generate enhanced description (optional, don't fail if it errors)
+        let enhancedDescription = '';
+        try {
+          setEnhancementProgress('Generating enhanced description...');
+          const descriptionResponse = await fetch('/api/generate-description', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              restaurantData: {
+                ...restaurant,
+                ...outscraperData,
+                images: photosData?.photos || []
+              }
+            })
+          });
+          
+          if (descriptionResponse.ok) {
+            const descData = await descriptionResponse.json();
+            enhancedDescription = descData.description;
+          }
+        } catch (descError) {
+          // Silently continue if description generation fails
+        }
+        
+        // Step 4: Update form data with enhanced information
+        setEnhancementProgress('Updating restaurant data...');
+        const updates: any = {};
+        
+        // Update basic info (always update to get latest data)
+        if (outscraperData.phone) {
+          updates.phone = outscraperData.phone;
+        }
+        if (outscraperData.website) {
+          updates.website = outscraperData.website;
+        }
+        if (outscraperData.rating) {
+          updates.rating = outscraperData.rating.toString();
+        }
+        if (outscraperData.reviews) {
+          updates.reviews = outscraperData.reviews.toString();
+        }
+        if (outscraperData.price_range) {
+          updates.price_range = outscraperData.price_range;
+        }
+        if (outscraperData.category) {
+          updates.category = outscraperData.category;
+        }
+        if (outscraperData.working_hours) {
+          updates.working_hours = JSON.stringify(outscraperData.working_hours, null, 2);
+        }
+        
+        // Build additional features from 'about' object if available
+        if (outscraperData.about && typeof outscraperData.about === 'object') {
+          const featuresArray: string[] = [];
+          
+          // Extract features from different categories
+          Object.entries(outscraperData.about).forEach(([category, items]) => {
+            if (typeof items === 'object' && items !== null) {
+              Object.entries(items as Record<string, any>).forEach(([feature, value]) => {
+                if (value === true) {
+                  featuresArray.push(feature);
+                }
+              });
+            }
+          });
+          
+          if (featuresArray.length > 0) {
+            updates.additional_features = `- ${featuresArray.join('\n- ')}`;
+          }
+        } else if (outscraperData.additional_features && !formData.additional_features) {
+          updates.additional_features = outscraperData.additional_features;
+        }
+        
+        // Update metadata fields
+        if (outscraperData.business_status) {
+          updates.business_status = outscraperData.business_status;
+        }
+        if (outscraperData.place_id) {
+          updates.place_id = outscraperData.place_id;
+        }
+        if (outscraperData.google_id) {
+          updates.google_id = outscraperData.google_id;
+        }
+        if (outscraperData.plus_code) {
+          updates.plus_code = outscraperData.plus_code;
+        }
+        if (outscraperData.verified !== undefined) {
+          updates.verified = outscraperData.verified;
+        }
+        if (outscraperData.photos_count) {
+          updates.photos_count = outscraperData.photos_count;
+        }
+        if (outscraperData.reviews_per_score) {
+          updates.reviews_per_score = typeof outscraperData.reviews_per_score === 'string' 
+            ? outscraperData.reviews_per_score 
+            : JSON.stringify(outscraperData.reviews_per_score);
+        }
+        if (outscraperData.reviews_tags) {
+          updates.reviews_tags = typeof outscraperData.reviews_tags === 'string'
+            ? outscraperData.reviews_tags
+            : JSON.stringify(outscraperData.reviews_tags);
+        }
+        if (outscraperData.logo) {
+          updates.logo = outscraperData.logo;
+        }
+        if (outscraperData.subtypes) {
+          updates.subtypes = outscraperData.subtypes;
+        }
+        if (outscraperData.menu_link) {
+          updates.menu_link = outscraperData.menu_link;
+        }
+        if (outscraperData.booking_appointment_link) {
+          updates.booking_appointment_link = outscraperData.booking_appointment_link;
+        }
+        if (outscraperData.street_view) {
+          updates.street_view = outscraperData.street_view;
+        }
+        if (outscraperData.photo) {
+          updates.photo = outscraperData.photo;
+        }
+        
+        // Update private rooms if any
+        if (outscraperData.privateRooms && outscraperData.privateRooms.length > 0) {
+          setPrivateRooms(outscraperData.privateRooms);
+        }
+        
+        // Update description if enhanced
+        if (enhancedDescription) {
+          updates.description = enhancedDescription;
+        }
+        
+        // Update images if fetched
+        if (photosData?.photos && photosData.photos.length > 0) {
+          updates.images = photosData.photos;
+        }
+        
+        // Apply updates to form data
+        if (Object.keys(updates).length > 0) {
+          setFormData(prev => ({ ...prev, ...updates }));
+          showNotification(`Data enhanced successfully! Updated ${Object.keys(updates).length} fields.`);
+        } else {
+          showNotification('No new data found to enhance this restaurant.');
+        }
+        
+        setEnhancementProgress('Data enhancement completed!');
+      } else {
+        const errorData = await outscraperResponse.json();
+        throw new Error(errorData.error || errorData.details || `Failed to fetch data from Outscraper (${outscraperResponse.status})`);
+      }
+    } catch (error) {
+      showNotification('Error enhancing data: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsEnhancingData(false);
+      setEnhancementProgress('');
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -325,12 +754,12 @@ export default function EditRestaurantPage() {
       if (data.success) {
         setGeneratedDescription(data.description);
         setShowDescriptionPreview(true);
+        showNotification('Description generated successfully!');
       } else {
-        alert('Failed to generate description: ' + data.message);
+        showNotification('Failed to generate description: ' + data.message, 'error');
       }
     } catch (error) {
-      console.error('Error generating description:', error);
-      alert('Error generating description');
+      showNotification('Error generating description', 'error');
     } finally {
       setGeneratingDescription(false);
     }
@@ -347,9 +776,133 @@ export default function EditRestaurantPage() {
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(generatedDescription);
-      alert('Description copied to clipboard!');
+      showNotification('Description copied to clipboard!');
     } catch (error) {
-      console.error('Failed to copy:', error);
+      showNotification('Failed to copy to clipboard', 'error');
+    }
+  };
+
+  const generateAIPrompt = () => {
+    const restaurantName = formData.name || '[Restaurant Name]';
+    const restaurantAddress = formData.address || '[Restaurant Address]';
+    
+    const prompt = `${restaurantName}
+${restaurantAddress}
+
+Can you create a list of private rooms options, website, category, price_range with dollars sign ($), additional features and short_description (150 characters long) for this restaurant in JSON format with the following keys:
+
+{
+  "restaurant_name": "",
+  "address": "",
+  "website": "",
+  "category": "",
+  "price_range": "",
+  "private_rooms": [
+    {
+      "room_name": "",
+      "capacity": 0,
+      "setup": "",
+      "features": []
+    }
+  ],
+  "additional_features": [],
+  "short_description": ""
+}`;
+
+    setGeneratedPrompt(prompt);
+    setShowPromptGenerator(true);
+  };
+
+  const copyPromptToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedPrompt);
+      showNotification('Prompt copied to clipboard! Paste it into ChatGPT, Perplexity or Claude.');
+    } catch (error) {
+      showNotification('Failed to copy prompt to clipboard', 'error');
+    }
+  };
+
+  const parseJsonData = () => {
+    setJsonParseError('');
+    
+    try {
+      const parsedData = JSON.parse(jsonInput);
+      
+      // Parse website
+      if (parsedData.website) {
+        setFormData(prev => ({
+          ...prev,
+          website: parsedData.website
+        }));
+      }
+      
+      // Parse category
+      if (parsedData.category) {
+        setFormData(prev => ({
+          ...prev,
+          category: parsedData.category
+        }));
+      }
+
+      // Parse price_range
+      if (parsedData.price_range) {
+        setFormData(prev => ({
+          ...prev,
+          price_range: parsedData.price_range
+        }));
+      }
+      
+      // Parse short_description
+      if (parsedData.short_description) {
+        setFormData(prev => ({
+          ...prev,
+          short_description: parsedData.short_description
+        }));
+      }
+      
+      // Parse additional_features (array to markdown list)
+      if (parsedData.additional_features && Array.isArray(parsedData.additional_features)) {
+        const featuresMarkdown = parsedData.additional_features
+          .map((feature: string) => `- ${feature}`)
+          .join('\n');
+        setFormData(prev => ({
+          ...prev,
+          additional_features: featuresMarkdown
+        }));
+      }
+      
+      // Parse private_rooms
+      if (parsedData.private_rooms && Array.isArray(parsedData.private_rooms)) {
+        const parsedRooms = parsedData.private_rooms.map((room: {
+          room_name?: string;
+          capacity?: number;
+          setup?: string;
+          features?: string[];
+        }) => {
+          let description = '';
+          
+          // Build description from features only
+          if (room.features && Array.isArray(room.features)) {
+            description = room.features.map((f: string) => `- ${f}`).join('\n');
+          }
+          
+          return {
+            name: room.room_name || '',
+            capacity: room.capacity || 0,
+            setup: room.setup || '',
+            description: description.trim()
+          };
+        });
+        
+        setPrivateRooms(parsedRooms);
+      }
+      
+      showNotification('JSON parsed successfully! Data has been populated into the form fields.');
+      setJsonInput('');
+      setShowJsonParser(false);
+      
+    } catch (error) {
+      setJsonParseError(`Invalid JSON format: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -363,7 +916,7 @@ export default function EditRestaurantPage() {
   };
 
   const addPrivateRoom = () => {
-    setPrivateRooms([...privateRooms, { name: '', capacity: 0, description: '' }]);
+    setPrivateRooms([...privateRooms, { name: '', capacity: 0, setup: '', description: '' }]);
   };
 
   const removePrivateRoom = (index: number) => {
@@ -445,15 +998,16 @@ export default function EditRestaurantPage() {
       });
 
       if (response.ok) {
-        alert('Restaurant updated successfully!');
-        router.push('/super-admin');
+        showNotification('Restaurant updated successfully!');
+        setTimeout(() => {
+          router.push('/super-admin');
+        }, 1000);
       } else {
         const error = await response.json();
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       }
     } catch (error) {
-      console.error('Error updating restaurant:', error);
-      alert('Error updating restaurant');
+      showNotification('Error updating restaurant', 'error');
     } finally {
       setSaving(false);
     }
@@ -470,15 +1024,16 @@ export default function EditRestaurantPage() {
       });
 
       if (response.ok) {
-        alert('Restaurant deleted successfully!');
-        router.push('/super-admin');
+        showNotification('Restaurant deleted successfully!');
+        setTimeout(() => {
+          router.push('/super-admin');
+        }, 1000);
       } else {
         const error = await response.json();
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       }
     } catch (error) {
-      console.error('Error deleting restaurant:', error);
-      alert('Error deleting restaurant');
+      showNotification('Error deleting restaurant', 'error');
     }
   };
 
@@ -528,7 +1083,39 @@ export default function EditRestaurantPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Toast Notification */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top duration-300">
+          <div className={`flex items-center space-x-3 px-6 py-4 rounded-lg shadow-2xl border-2 ${
+            notification.type === 'success' 
+              ? 'bg-green-50 border-green-500 text-green-800' 
+              : 'bg-red-50 border-red-500 text-red-800'
+          }`}>
+            <div className="flex-shrink-0">
+              {notification.type === 'success' ? (
+                <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-sm">{notification.message}</p>
+            </div>
+            <button
+              onClick={() => setNotification({ show: false, message: '', type: 'success' })}
+              className="flex-shrink-0 ml-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-lg p-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
@@ -545,6 +1132,30 @@ export default function EditRestaurantPage() {
             </div>
             <div className="flex gap-3">
               <button
+                onClick={enhanceRestaurantData}
+                disabled={isEnhancingData || loading}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                <Database className="h-4 w-4 mr-2" />
+                {isEnhancingData ? 'Enhancing...' : 'Enhance Data'}
+              </button>
+              <button
+                onClick={fetchRestaurantImages}
+                disabled={isFetchingImages || loading}
+                className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isFetchingImages ? 'Fetching...' : 'Fetch Images'}
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
                 onClick={handleDelete}
                 className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
@@ -552,6 +1163,188 @@ export default function EditRestaurantPage() {
                 Delete
               </button>
             </div>
+          </div>
+
+          {/* Enhancement Progress */}
+          {isEnhancingData && enhancementProgress && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center">
+                <RefreshCw className="w-5 h-5 mr-3 text-blue-600 animate-spin" />
+                <span className="text-blue-800 font-medium">{enhancementProgress}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Image Fetch Progress */}
+          {isFetchingImages && imageFetchProgress && (
+            <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center">
+                <Download className="w-5 h-5 mr-3 text-purple-600 animate-bounce" />
+                <span className="text-purple-800 font-medium">{imageFetchProgress}</span>
+              </div>
+            </div>
+          )}
+
+          {/* AI Prompt Generator Section */}
+          <div className="mb-6 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg border-2 border-green-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={generateAIPrompt}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/50 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <Copy className="h-5 w-5 text-green-600" />
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-gray-900">Generate AI Prompt</h3>
+                  <p className="text-sm text-gray-600">Create a ready-to-use prompt for ChatGPT or Claude</p>
+                </div>
+              </div>
+              <div className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
+                Generate Prompt
+              </div>
+            </button>
+          </div>
+
+          {/* AI Prompt Modal */}
+          {showPromptGenerator && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-teal-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Copy className="h-6 w-6 text-green-600" />
+                      <h3 className="text-xl font-bold text-gray-900">AI Prompt Ready!</h3>
+                    </div>
+                    <button
+                      onClick={() => setShowPromptGenerator(false)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-2">Copy this prompt and paste it into ChatGPT, Claude, or any AI assistant</p>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-6">
+                  <div className="bg-gray-50 rounded-lg border-2 border-gray-200 p-4">
+                    <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono leading-relaxed">
+                      {generatedPrompt}
+                    </pre>
+                  </div>
+                  
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">💡 How to use:</h4>
+                    <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
+                      <li>Click "Copy Prompt" below</li>
+                      <li>Open ChatGPT, Claude, or your preferred AI assistant</li>
+                      <li>Paste the prompt and send</li>
+                      <li>Wait for the AI to generate the JSON response</li>
+                      <li>Copy the JSON response</li>
+                      <li>Return here and use "Quick Import from JSON" to paste it</li>
+                    </ol>
+                  </div>
+                </div>
+                
+                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={copyPromptToClipboard}
+                    className="flex-1 flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  >
+                    <Copy className="h-5 w-5 mr-2" />
+                    Copy Prompt to Clipboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPromptGenerator(false)}
+                    className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* JSON Quick Import Section */}
+          <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowJsonParser(!showJsonParser)}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/50 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-gray-900">Quick Import from JSON</h3>
+                  <p className="text-sm text-gray-600">Parse restaurant data from JSON to auto-fill fields</p>
+                </div>
+              </div>
+              <div className={`transform transition-transform ${showJsonParser ? 'rotate-180' : ''}`}>
+                <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+            
+            {showJsonParser && (
+              <div className="px-6 pb-6 space-y-4 bg-white border-t border-purple-200">
+                <div className="pt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Paste JSON Data
+                  </label>
+                  <textarea
+                    value={jsonInput}
+                    onChange={(e) => {
+                      setJsonInput(e.target.value);
+                      setJsonParseError('');
+                    }}
+                    placeholder={`{\n  "restaurant_name": "...",\n  "address": "...",\n  "website": "https://...",\n  "category": "Fine Dining – Italian",\n  "short_description": "...",\n  "additional_features": ["...", "..."],\n  "private_rooms": [\n    {\n      "room_name": "...",\n      "capacity": 40,\n      "setup": "...",\n      "features": ["...", "..."]\n    }\n  ]\n}`}
+                    rows={12}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                  />
+                  {jsonParseError && (
+                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                      <p className="text-sm text-red-600">❌ {jsonParseError}</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-2">📋 Supported Fields:</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• <code className="bg-blue-100 px-1 rounded">website</code> - Website URL</li>
+                    <li>• <code className="bg-blue-100 px-1 rounded">category</code> - Restaurant category/cuisine type</li>
+                    <li>• <code className="bg-blue-100 px-1 rounded">short_description</code> - Short description field</li>
+                    <li>• <code className="bg-blue-100 px-1 rounded">additional_features</code> - Array → markdown list</li>
+                    <li>• <code className="bg-blue-100 px-1 rounded">private_rooms</code> - Array of rooms (room_name, capacity, setup, features)</li>
+                  </ul>
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={parseJsonData}
+                    disabled={!jsonInput.trim()}
+                    className="flex-1 flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Parse & Import Data
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setJsonInput('');
+                      setJsonParseError('');
+                      setShowJsonParser(false);
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -868,6 +1661,122 @@ export default function EditRestaurantPage() {
               maxImages={20}
             />
 
+            {/* Enhanced Image Metadata Manager */}
+            <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <ImageIcon className="h-5 w-5 text-blue-600 mr-2" />
+                  <h3 className="text-sm font-semibold text-gray-900">Image Metadata Manager</h3>
+                  <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">
+                    {formData.images?.length || 0} images
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openImageMetadataEditor()}
+                  className="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Image with Metadata
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-600 mb-4">
+                Manually add or edit images with full metadata (source, dimensions, website info, etc.). Use this when Outscraper fails to fetch images.
+              </p>
+
+              {/* Image List */}
+              {formData.images && formData.images.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {formData.images.map((image, index) => (
+                    <div
+                      key={index}
+                      className="bg-white rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition-colors"
+                    >
+                      <div className="flex items-start space-x-4">
+                        {/* Image Preview */}
+                        <div className="flex-shrink-0">
+                          <img
+                            src={image.url}
+                            alt={image.alt || `Image ${index + 1}`}
+                            className="w-16 h-16 object-cover rounded border border-gray-300"
+                            onError={(e) => {
+                              e.currentTarget.src = '/placeholder-restaurant.jpg';
+                            }}
+                          />
+                        </div>
+
+                        {/* Image Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900 truncate" title={image.title || 'Untitled'}>
+                              {(image.title || 'Untitled').length > 50 
+                                ? (image.title || 'Untitled').substring(0, 50) + '...' 
+                                : (image.title || 'Untitled')
+                              }
+                            </p>
+                            <p className="text-xs text-gray-500 truncate mt-1" title={image.alt || 'No alt text'}>
+                              {(image.alt || 'No alt text').length > 50 
+                                ? (image.alt || 'No alt text').substring(0, 50) + '...' 
+                                : (image.alt || 'No alt text')
+                              }
+                            </p>
+                            <div className="flex flex-wrap items-center mt-2 gap-2 text-xs text-gray-500">
+                              <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded">
+                                #{image.position || index + 1}
+                              </span>
+                              {image.dimensions && (
+                                <span className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 rounded">
+                                  {image.dimensions.width}×{image.dimensions.height}
+                                </span>
+                              )}
+                              {image.source && (
+                                <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                  {image.source}
+                                </span>
+                              )}
+                            </div>
+                            {image.website?.name && (
+                              <p className="text-xs text-gray-500 mt-1 truncate">
+                                <span className="font-medium">Source:</span> {image.website.name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions - Moved to bottom */}
+                      <div className="flex items-center justify-end space-x-2 mt-3 pt-3 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => openImageMetadataEditor(index)}
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                          title="Edit metadata"
+                        >
+                          <Edit3 className="h-3 w-3 mr-1" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteImage(index)}
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+                          title="Delete image"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-white rounded-lg border border-dashed border-gray-300">
+                  <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600">No images yet. Add images using the uploader above or with metadata below.</p>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description
@@ -1050,41 +1959,59 @@ export default function EditRestaurantPage() {
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Room Name
+                        </label>
+                        <input
+                          type="text"
+                          value={room.name}
+                          onChange={(e) => handlePrivateRoomChange(index, 'name', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., The Upper Room"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Capacity
+                        </label>
+                        <input
+                          type="number"
+                          value={room.capacity}
+                          onChange={(e) => handlePrivateRoomChange(index, 'capacity', parseInt(e.target.value) || 0)}
+                          min="1"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., 25"
+                        />
+                      </div>
+                    </div>
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Room Name
+                        Setup / Event Types
                       </label>
                       <input
                         type="text"
-                        value={room.name}
-                        onChange={(e) => handlePrivateRoomChange(index, 'name', e.target.value)}
+                        value={room.setup || ''}
+                        onChange={(e) => handlePrivateRoomChange(index, 'setup', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., Private dinners, cocktail events, business meetings, showers"
                       />
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Capacity
+                        Description / Features
                       </label>
-                      <input
-                        type="number"
-                        value={room.capacity}
-                        onChange={(e) => handlePrivateRoomChange(index, 'capacity', parseInt(e.target.value) || 0)}
-                        min="1"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Description
-                      </label>
-                      <input
-                        type="text"
+                      <textarea
                         value={room.description || ''}
                         onChange={(e) => handlePrivateRoomChange(index, 'description', e.target.value)}
+                        rows={3}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., Elegant décor, natural light, custom prix fixe menus..."
                       />
                     </div>
                   </div>
@@ -1300,6 +2227,224 @@ export default function EditRestaurantPage() {
           </form>
         </div>
       </div>
+
+      {/* Image Metadata Editor Modal */}
+      {showImageMetadataEditor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editingImageIndex !== null ? 'Edit Image Metadata' : 'Add New Image'}
+              </h3>
+              <button
+                onClick={closeImageMetadataEditor}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Image URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Image URL * <span className="text-xs text-gray-500">(ImageKit URL from uploader above)</span>
+                </label>
+                <input
+                  type="url"
+                  value={imageMetadata.url}
+                  onChange={(e) => setImageMetadata(prev => ({ ...prev, url: e.target.value }))}
+                  placeholder="https://ik.imagekit.io/..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+                {imageMetadata.url && (
+                  <div className="mt-2">
+                    <img
+                      src={imageMetadata.url}
+                      alt="Preview"
+                      className="w-full h-48 object-cover rounded border border-gray-300"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder-restaurant.jpg';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Alt Text */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Alt Text *
+                  </label>
+                  <input
+                    type="text"
+                    value={imageMetadata.alt}
+                    onChange={(e) => setImageMetadata(prev => ({ ...prev, alt: e.target.value }))}
+                    placeholder={`${formData.name} - Image ${(formData.images?.length || 0) + 1}`}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={imageMetadata.title}
+                    onChange={(e) => setImageMetadata(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder={formData.name}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Source */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Source
+                  </label>
+                  <input
+                    type="text"
+                    value={imageMetadata.source}
+                    onChange={(e) => setImageMetadata(prev => ({ ...prev, source: e.target.value }))}
+                    placeholder="Manual Upload, Google Images, etc."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Position */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Position
+                  </label>
+                  <input
+                    type="number"
+                    value={imageMetadata.position}
+                    onChange={(e) => setImageMetadata(prev => ({ ...prev, position: parseInt(e.target.value) || 1 }))}
+                    min="1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Website Information */}
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Website Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Website URL
+                    </label>
+                    <input
+                      type="url"
+                      value={imageMetadata.website?.url || ''}
+                      onChange={(e) => setImageMetadata(prev => ({
+                        ...prev,
+                        website: { ...prev.website, url: e.target.value }
+                      }))}
+                      placeholder="https://example.com"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Website Name
+                    </label>
+                    <input
+                      type="text"
+                      value={imageMetadata.website?.name || ''}
+                      onChange={(e) => setImageMetadata(prev => ({
+                        ...prev,
+                        website: { ...prev.website, name: e.target.value }
+                      }))}
+                      placeholder="Example.com"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Website Title
+                    </label>
+                    <input
+                      type="text"
+                      value={imageMetadata.website?.title || ''}
+                      onChange={(e) => setImageMetadata(prev => ({
+                        ...prev,
+                        website: { ...prev.website, title: e.target.value }
+                      }))}
+                      placeholder="Page title from website"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Dimensions */}
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Image Dimensions</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Width (px)
+                    </label>
+                    <input
+                      type="number"
+                      value={imageMetadata.dimensions?.width || ''}
+                      onChange={(e) => setImageMetadata(prev => ({
+                        ...prev,
+                        dimensions: { ...prev.dimensions, width: parseInt(e.target.value) || 0 }
+                      }))}
+                      placeholder="1920"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Height (px)
+                    </label>
+                    <input
+                      type="number"
+                      value={imageMetadata.dimensions?.height || ''}
+                      onChange={(e) => setImageMetadata(prev => ({
+                        ...prev,
+                        dimensions: { ...prev.dimensions, height: parseInt(e.target.value) || 0 }
+                      }))}
+                      placeholder="1080"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={closeImageMetadataEditor}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveImageMetadata}
+                  disabled={!imageMetadata.url || !imageMetadata.alt}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {editingImageIndex !== null ? 'Update Image' : 'Add Image'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

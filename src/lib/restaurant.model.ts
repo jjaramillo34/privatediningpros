@@ -3,6 +3,7 @@ import { Schema, Document, models, model } from 'mongoose';
 export interface IPrivateRoom {
   name: string;
   capacity: number;
+  setup?: string;
   description?: string;
 }
 
@@ -98,6 +99,7 @@ export interface IRestaurant extends Document {
 const PrivateRoomSchema = new Schema<IPrivateRoom>({
   name: { type: String, required: true },
   capacity: { type: Number, required: true },
+  setup: { type: String },
   description: { type: String },
 });
 
@@ -193,5 +195,15 @@ const RestaurantSchema = new Schema<IRestaurant>({
 }, {
   timestamps: true
 });
+
+// Add indexes for better query performance
+RestaurantSchema.index({ status: 1, createdAt: -1 }); // For status filtering + sorting
+RestaurantSchema.index({ featured: 1 }); // For featured restaurants
+RestaurantSchema.index({ name: 1 }); // For name searches and sorting
+RestaurantSchema.index({ neighborhood: 1 }); // For location filtering
+RestaurantSchema.index({ category: 1 }); // For category filtering
+RestaurantSchema.index({ rating: -1 }); // For rating sorting
+RestaurantSchema.index({ place_id: 1 }); // For unique identification
+RestaurantSchema.index({ google_id: 1 }); // For Google Maps integration
 
 export default models.Restaurant || model<IRestaurant>('Restaurant', RestaurantSchema); 
